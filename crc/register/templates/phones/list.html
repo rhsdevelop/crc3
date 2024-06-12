@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados da lista</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Nome</th>
+            <th scope="col">Especialidade</th>
+            <th scope="col">Telefone</th>
+            <th scope="col">Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for phone in phones %}
+          <tr>
+            <td>{{ phone.doctor.name }}</td>
+            <td>{{ phone.doctor.specialty }}</td>
+            <td>{{ phone.number }}</td>
+            <td>{{ phone.observation }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<!-- Page level plugins -->
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<!-- Page level custom scripts -->
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+{% if perms.doctors.add_specialty %}
+<div class="col-lg-12">
+  <a href="/specialties/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Adicionar Especialidade</button></a>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <!-- Card Header - Accordion -->
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <!-- Card Content - Collapse -->
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {{ form.name|bootstrap }}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Especialidade</th>
+            <th scope="col">Data de inclusão</th>
+            {% if perms.doctors.change_specialty %}<th scope="col">Ações</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for specialty in specialties %}
+          <tr>
+            <th scope="row">{{ specialty.name }}</th>
+            <td>{{ specialty.register_date }}</td>
+            {% if perms.doctors.change_specialty %}<td><a href="/specialties/{{ specialty.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-edit"></span></button></a></td>{% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<!-- Page level plugins -->
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<!-- Page level custom scripts -->
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+{% endblock %}

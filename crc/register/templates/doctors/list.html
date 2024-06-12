@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+{% if perms.doctors.add_doctor %}
+<div class="col-lg-12">
+  <a href="/doctors/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Adicionar Médico</button></a>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <!-- Card Header - Accordion -->
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <!-- Card Content - Collapse -->
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {{ form.name|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.specialty|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.hospital|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.city|bootstrap }}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Nome</th>
+            <th scope="col">Especialidade</th>
+            <th scope="col">Cidade</th>
+            <th scope="col">Hospital</th>
+            <th scope="col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doctor in doctors %}
+          <tr>
+            <th scope="row">{{ doctor.name }}</th>
+            <td>{{ doctor.specialty }}</td>
+            <td>{{ doctor.city }}</td>
+            <td>{{ doctor.hospital }}</td>
+            <td><a href="/doctors/{{ doctor.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-edit"></span></button></a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<!-- Page level plugins -->
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<!-- Page level custom scripts -->
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+{% endblock %}
