@@ -61,7 +61,7 @@
             <td>{{ grupos.ajudante }}</td>
             <td>{{ grupos.create_user }}</td>
             <td>{{ grupos.created }}</td>
-            <td><a href="/grupos/{{ grupos.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a></td>
+            <td>{% if perms.register.change_grupos %}<a href="/grupos/{{ grupos.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>

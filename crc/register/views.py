@@ -1,3 +1,6 @@
+import datetime
+
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.http import Http404, HttpResponse
@@ -8,7 +11,7 @@ from .forms import (AddCongForm, FindCongForm, AddGruposForm, FindGruposForm,
                     AddCongUserForm, FindCongUserForm,
                     AddPublicadoresForm, FindPublicadoresForm, AddPioneirosForm,
                     FindPioneirosForm)
-from .models import Cong, CongUser, Drive, Grupos, Publicadores, Reunioes, Relatorios, Pioneiros, Faltas
+from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
 
 # Create your views here.
 
@@ -169,13 +172,24 @@ def list_conguser(request):
 def add_grupos(request):
     if request.POST:
         form = AddGruposForm(request.POST)
+        if not request.user.is_staff:
+            form.fields['cong'].widget = forms.HiddenInput()
         item = form.save(commit=False)
         item.create_user = request.user
         item.assign_user = request.user
+        if not request.user.is_staff:
+            crc_user = CongUser.objects.filter(user=request.user)
+            if crc_user:
+                item.cong_id = crc_user.first().cong_id
+            else:
+                messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+                return redirect('/')
         item.save()
         messages.success(request, 'Registro adicionado com sucesso.')
         return redirect('/grupos/list')
     form = AddGruposForm()
+    if not request.user.is_staff:
+        form.fields['cong'].widget = forms.HiddenInput()
     template = loader.get_template('grupos/add.html')
     context = {
         'title': 'Adicionar Novo Grupo de Serviço',
@@ -191,12 +205,16 @@ def edit_grupos(request, grupos_id):
     grupos = Grupos.objects.get(id=grupos_id)
     if request.POST:
         form = AddGruposForm(request.POST, instance=grupos)
+        if not request.user.is_staff:
+            form.fields['cong'].widget = forms.HiddenInput()
         item = form.save(commit=False)
         item.assign_user = request.user
         item.save()
         messages.success(request, 'Registro alterado com sucesso.')
         return redirect('/grupos/list')
     form = AddGruposForm(instance=grupos)
+    if not request.user.is_staff:
+        form.fields['cong'].widget = forms.HiddenInput()
     template = loader.get_template('grupos/edit.html')
     context = {
         'title': 'Dados do Grupo de Serviço Selecionado',
@@ -218,7 +236,6 @@ def list_grupos(request):
         crc_user = CongUser.objects.filter(user=request.user)
         if crc_user:
             filter_search['cong_id'] = crc_user.first().cong_id
-            print(filter_search['cong_id'])
         else:
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
@@ -241,13 +258,24 @@ def list_grupos(request):
 def add_publicadores(request):
     if request.POST:
         form = AddPublicadoresForm(request.POST)
+        if not request.user.is_staff:
+            form.fields['cong'].widget = forms.HiddenInput()
         item = form.save(commit=False)
         item.create_user = request.user
         item.assign_user = request.user
+        if not request.user.is_staff:
+            crc_user = CongUser.objects.filter(user=request.user)
+            if crc_user:
+                item.cong_id = crc_user.first().cong_id
+            else:
+                messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+                return redirect('/')
         item.save()
         messages.success(request, 'Registro adicionado com sucesso.')
         return redirect('/publicadores/list')
     form = AddPublicadoresForm()
+    if not request.user.is_staff:
+        form.fields['cong'].widget = forms.HiddenInput()
     template = loader.get_template('publicadores/add.html')
     context = {
         'title': 'Adicionar Novo Publicador',
@@ -263,12 +291,20 @@ def edit_publicadores(request, publicadores_id):
     publicadores = Publicadores.objects.get(id=publicadores_id)
     if request.POST:
         form = AddPublicadoresForm(request.POST, instance=publicadores)
+        if not request.user.is_staff:
+            form.fields['cong'].widget = forms.HiddenInput()
         item = form.save(commit=False)
         item.assign_user = request.user
         item.save()
         messages.success(request, 'Registro alterado com sucesso.')
         return redirect('/publicadores/list')
+    publicadores.nascimento = str(publicadores.nascimento)
+    publicadores.batismo = str(publicadores.batismo)
+    publicadores.data_classe = str(publicadores.data_classe)
+    publicadores.data_visita = str(publicadores.data_visita)
     form = AddPublicadoresForm(instance=publicadores)
+    if not request.user.is_staff:
+        form.fields['cong'].widget = forms.HiddenInput()
     template = loader.get_template('publicadores/edit.html')
     context = {
         'title': 'Dados de Publicador Selecionado',
@@ -281,25 +317,33 @@ def edit_publicadores(request, publicadores_id):
 @login_required
 @permission_required('register.view_publicadores')
 def list_publicadores(request):
-    form = FindPublicadoresForm(request.GET)
+    filter_search = {}
+    if request.GET:
+        form = FindPublicadoresForm(request.GET)
+    else:
+        form = FindPublicadoresForm()
+        form.fields['situacao'].initial = 1
+        filter_search['situacao'] = 1
     form.fields['nome'].required = False
     form.fields['endereco'].required = False
     form.fields['esperanca'].required = False
     form.fields['privilegio'].required = False
     form.fields['tipo'].required = False
     form.fields['situacao'].required = False
-    filter_search = {}
+    form.fields['grupo'].required = False
     if not request.user.is_staff:
         crc_user = CongUser.objects.filter(user=request.user)
         if crc_user:
             filter_search['cong_id'] = crc_user.first().cong_id
-            print(filter_search['cong_id'])
+            form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.first().cong_id).order_by('grupo')
         else:
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
     for key, value in request.GET.items():
-        if key in ['nome', 'numero'] and value:
+        if key in ['nome', 'endereco'] and value:
             filter_search['%s__icontains' % key] = value
+        elif key in ['esperanca', 'privilegio', 'tipo', 'situacao', 'grupo'] and value:
+            filter_search[key] = value
     list_publicadores = Publicadores.objects.filter(**filter_search)
     template = loader.get_template('publicadores/list.html')
     context = {
@@ -315,17 +359,29 @@ def list_publicadores(request):
 @permission_required('register.add_pioneiros')
 def add_pioneiros(request):
     if request.POST:
-        form = AddPioneirosForm(request.POST)
-        item = form.save(commit=False)
-        item.create_user = request.user
-        item.assign_user = request.user
-        item.save()
+        request_post = request.POST.copy()
+        new_item = {
+            'publicador_id': request_post['publicador'],
+            'mes': request_post['mes'] + '-01',
+            'observacao': request_post['observacao'],
+            'create_user_id': request.user.id,
+            'assign_user_id': request.user.id,
+        }
+        Pioneiros.objects.create(**new_item)
         messages.success(request, 'Registro adicionado com sucesso.')
         return redirect('/pioneiros/list')
     form = AddPioneirosForm()
+    form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            form.fields['publicador'].queryset = Publicadores.objects.filter(cong_id=crc_user.first().cong_id, situacao=1).order_by('nome')
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
     template = loader.get_template('pioneiros/add.html')
     context = {
-        'title': 'Adicionar Novo Publicador',
+        'title': 'Incluir Petição de Pioneiro Auxiliar',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'form': form,
     }
@@ -333,37 +389,33 @@ def add_pioneiros(request):
 
 
 @login_required
-@permission_required('register.change_pioneiros')
-def edit_pioneiros(request, pioneiros_id):
+@permission_required('register.delete_pioneiros')
+def delete_pioneiros(request, pioneiros_id):
     pioneiros = Pioneiros.objects.get(id=pioneiros_id)
-    if request.POST:
-        form = AddPioneirosForm(request.POST, instance=pioneiros)
-        item = form.save(commit=False)
-        item.assign_user = request.user
-        item.save()
-        messages.success(request, 'Registro alterado com sucesso.')
-        return redirect('/pioneiros/list')
-    form = AddPioneirosForm(instance=pioneiros)
-    template = loader.get_template('pioneiros/edit.html')
-    context = {
-        'title': 'Dados de Publicador Selecionado',
-        'username': '%s %s' % (request.user.first_name, request.user.last_name),
-        'form': form,
-    }
-    return HttpResponse(template.render(context, request))
+    pioneiros.delete()
+    messages.success(request, 'Registro removido com sucesso.')
+    return redirect('/pioneiros/list/')
 
 
 @login_required
 @permission_required('register.view_pioneiros')
 def list_pioneiros(request):
-    form = FindPioneirosForm(request.GET)
+    filter_search = {}
+    if request.GET:
+        request_get = request.GET.copy()
+        if 'mes' in request_get and request_get['mes']: request_get['mes'] = request_get['mes'] + '-01' # Bug que apaga data no formulario de filtro.
+        form = FindPioneirosForm(request_get)
+    else:
+        form = FindPioneirosForm()
+        form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
+        filter_search['mes'] = datetime.date.today().replace(day=1)
     form.fields['publicador'].required = False
     form.fields['mes'].required = False
-    filter_search = {}
     if not request.user.is_staff:
         crc_user = CongUser.objects.filter(user=request.user)
         if crc_user:
             filter_search['publicador__cong_id'] = crc_user.first().cong_id
+            form.fields['publicador'].queryset = Publicadores.objects.filter(cong_id=crc_user.first().cong_id, situacao=1).order_by('nome')
         else:
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')

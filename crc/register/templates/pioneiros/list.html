@@ -45,19 +45,20 @@
             <th scope="col">Publicador</th>
             <th scope="col">Mês</th>
             <th scope="col">Observação</th>
+            <th scope="col">Usuário</th>
             <th scope="col">Data de criação</th>
             <th scope="col">Ações</th>
           </tr>
         </thead>
         <tbody>
-          {% for cong in list_cong %}
+          {% for pioneiros in list_pioneiros %}
           <tr>
-            <th scope="row">{{ cong.publicador }}</th>
-            <td>{{ cong.mes }}</td>
-            <td>{{ cong.observacao }}</td>
-            <td>{{ cong.create_user }}</td>
-            <td>{{ cong.created }}</td>
-            <td><a href="/cong/{{ cong.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a></td>
+            <th scope="row">{{ pioneiros.publicador }}</th>
+            <td>{{ pioneiros.mes }}</td>
+            <td>{{ pioneiros.observacao }}</td>
+            <td>{{ pioneiros.create_user }}</td>
+            <td>{{ pioneiros.created }}</td>
+            <td>{% if perms.register.delete_pioneiros %}<a href="/pioneiros/{{ pioneiros.id }}/delete/" ><button class="btn btn-warning"><span class="fas fa-trash"></span></button></a>{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
