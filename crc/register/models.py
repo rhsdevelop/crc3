@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 
 # Base cadastral.
@@ -42,9 +43,26 @@ TIPO_REUNIAO = [
 class Cong(models.Model):
     nome = models.CharField(db_column='Nome', max_length=50)
     numero = models.IntegerField(db_column='Numero')
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='cong_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='cong_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Cong'
+
+    def __str__(self) -> str:
+        return self.nome + ' (%s)' % self.numero
+
+
+class CongUser(models.Model):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    user = models.ForeignKey(User, db_column='Usuario', on_delete=models.PROTECT, related_name='cong_user')
+    admin = models.BooleanField(db_column='Administrador', default=False)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='conguser_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='conguser_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
 
 class Drive(models.Model):
@@ -59,9 +77,17 @@ class Grupos(models.Model):
     grupo = models.CharField(db_column='Grupo', max_length=50)
     dirigente = models.CharField(db_column='Dirigente', max_length=50)
     ajudante = models.CharField(db_column='Ajudante', max_length=50, blank=True, null=True)
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT, blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='grupo_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='grupo_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Grupos'
+
+    def __str__(self) -> str:
+        return self.grupo
 
 
 class Publicadores(models.Model):
@@ -82,15 +108,27 @@ class Publicadores(models.Model):
     data_visita = models.DateField(db_column='Data_Visita', blank=True, null=True)
     grupo = models.ForeignKey(Grupos, db_column='Grupo', on_delete=models.PROTECT, blank=True, null=True)
     nome_gdrive = models.CharField(db_column='Nome_Gdrive', blank=True, null=True, max_length=50)
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT, blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='publicador_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='publicador_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Publicadores'
+
+    def __str__(self) -> str:
+        return self.nome
 
 
 class Pioneiros(models.Model):
     publicador = models.ForeignKey(Publicadores, db_column='Publicador', on_delete=models.PROTECT, blank=True, null=True)
     mes = models.DateField(db_column='Mes')
     observacao = models.TextField(db_column='Observacao', blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='pioneiro_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='pioneiro_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Pioneiros'
@@ -102,6 +140,10 @@ class Faltas(models.Model):
     data = models.DateField(db_column='Data')
     publicador = models.ForeignKey(Publicadores, db_column='Publicador', on_delete=models.PROTECT, blank=True, null=True)
     reuniao = models.IntegerField(db_column='Reuniao', blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='falta_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='falta_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Faltas'
@@ -120,6 +162,10 @@ class Relatorios(models.Model):
     reuniao_meio = models.IntegerField(db_column='Reuniao_Meio', blank=True, null=True)
     reuniao_fim = models.IntegerField(db_column='Reuniao_Fim', blank=True, null=True)
     atv_local = models.IntegerField(db_column='Atv_Local', blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='relatorio_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='relatorio_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Relatorios'
@@ -130,6 +176,11 @@ class Reunioes(models.Model):
     tipo = models.IntegerField(db_column='Tipo', choices=TIPO_REUNIAO)
     assistencia = models.IntegerField(db_column='Assistencia')
     observacao = models.TextField(db_column='Observacao', blank=True, null=True)
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT, blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='reuniao_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='reuniao_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'Reunioes'

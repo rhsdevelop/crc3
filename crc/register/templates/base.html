@@ -12,7 +12,7 @@
     <title>CRC - Controle de Registros de Congregação</title>
 
     <!-- Custom fonts for this template-->
-    <link href="static/sb/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <link href="/static/sb/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link
         href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
         rel="stylesheet">
@@ -33,7 +33,7 @@
             <!-- Sidebar - Brand -->
             <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/">
                 <div class="sidebar-brand-icon rotate-n-15">
-                    <i class="fas fa-heartbeat"></i>
+                    <i class="fas fa-briefcase"></i>
                 </div>
                 <div class="sidebar-brand-text mx-3">CRC 3</div>
             </a>
@@ -57,14 +57,60 @@
             </div>
 
             <!-- Nav Item - Pages Collapse Menu -->
+            {% if perms.register.view_publicadores %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseCad"
+                    aria-expanded="true" aria-controls="collapseCad">
+                    <i class="fas fa-fw fa-folder"></i>
+                    <span>Cadastros</span>
+                </a>
+                <div id="collapseCad" class="collapse" aria-labelledby="headingCad" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Registros armazenados:</h6>
+                        {% if perms.register.view_cong %}
+                        <a class="collapse-item" href="/cong/list/">Congregação</a>
+                        {% endif %}
+                        {% if perms.register.view_conguser %}
+                        <a class="collapse-item" href="/conguser/list/">Usuários</a>
+                        {% endif %}
+                        {% if perms.register.view_grupos %}
+                        <a class="collapse-item" href="/grupos/list/">Grupos de Serviço</a>
+                        {% endif %}
+                        {% if perms.register.view_publicadores %}
+                        <a class="collapse-item" href="/publicadores/list/">Publicadores</a>
+                        {% endif %}
+                        {% if perms.register.view_pioneiros %}
+                        <a class="collapse-item" href="/pioneiros/list/">Pioneiros Auxiliares</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endif %}
             {% if perms.doctors.add_doctor or request.user.is_staff %}
             <li class="nav-item">
-                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
-                    aria-expanded="true" aria-controls="collapseTwo">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseMin"
+                    aria-expanded="true" aria-controls="collapseMin">
                     <i class="fas fa-fw fa-folder"></i>
-                    <span>Catálogo</span>
+                    <span>Ministério de Campo</span>
                 </a>
-                <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+                <div id="collapseMin" class="collapse" aria-labelledby="headingMin" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Registros armazenados:</h6>
+                        <a class="collapse-item" href="/specialties/list/">Especialidades</a>
+                        <a class="collapse-item" href="/doctors/list/">Médicos</a>
+                        <a class="collapse-item" href="/phones/list/">Contatos Telefônicos</a>
+                    </div>
+                </div>
+            </li>
+            {% endif %}
+            {% if perms.doctors.add_doctor or request.user.is_staff %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReu"
+                    aria-expanded="true" aria-controls="collapseReu">
+                    <i class="fas fa-fw fa-folder"></i>
+                    <span>Reuniões</span>
+                </a>
+                <div id="collapseReu" class="collapse" aria-labelledby="headingReu" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Registros armazenados:</h6>
                         <a class="collapse-item" href="/specialties/list/">Especialidades</a>

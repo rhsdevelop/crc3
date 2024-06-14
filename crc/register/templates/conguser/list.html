@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+{% if perms.register.add_conguser %}
+<div class="col-lg-12">
+  <a href="/conguser/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Relacionar Usuário e Congregação</button></a>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <!-- Card Header - Accordion -->
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <!-- Card Content - Collapse -->
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {{ form.cong|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.user|bootstrap }}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Congregação</th>
+            <th scope="col">Usuário</th>
+            <th scope="col">Vinculado por</th>
+            <th scope="col">Data de criação</th>
+            <th scope="col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for conguser in list_conguser %}
+          <tr>
+            <th scope="row">{{ conguser.cong }}</th>
+            <td>{{ conguser.user }}</td>
+            <td>{{ conguser.create_user }}</td>
+            <td>{{ conguser.created }}</td>
+            <td><a href="/conguser/{{ conguser.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<!-- Page level plugins -->
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<!-- Page level custom scripts -->
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+{% endblock %}
