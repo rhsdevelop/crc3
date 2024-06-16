@@ -7,7 +7,6 @@ app_name = 'activities'
 
 urlpatterns = [
     #path('', views.index, name='index'),
-    #path('cong/add/', views.add_cong, name='add_cong'),
-    #path('cong/list/', views.list_cong, name='list_cong'),
-    #path('cong/<int:cong_id>/edit/', views.edit_cong, name='edit_cong'),
+    path('relatorios/add/', views.add_relatorios, name='add_relatorios'),
+    path('relatorios/list/', views.list_relatorios, name='list_relatorios'),
 ]
