@@ -86,24 +86,24 @@
                 </div>
             </li>
             {% endif %}
-            {% if perms.doctors.add_doctor or request.user.is_staff %}
+            {% if perms.activities.view_relatorios or request.user.is_staff %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseMin"
                     aria-expanded="true" aria-controls="collapseMin">
                     <i class="fas fa-fw fa-folder"></i>
-                    <span>Ministério de Campo</span>
+                    <span>Ministério</span>
                 </a>
                 <div id="collapseMin" class="collapse" aria-labelledby="headingMin" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Registros armazenados:</h6>
-                        <a class="collapse-item" href="/specialties/list/">Especialidades</a>
-                        <a class="collapse-item" href="/doctors/list/">Médicos</a>
-                        <a class="collapse-item" href="/phones/list/">Contatos Telefônicos</a>
+                        <a class="collapse-item" href="/activities/relatorios/list/">Relatórios de Campo</a>
+                        <a class="collapse-item" href="/doctors/list/">Resumo JW</a>
+                        <a class="collapse-item" href="/phones/list/">Imprimir Cartões</a>
                     </div>
                 </div>
             </li>
             {% endif %}
-            {% if perms.doctors.add_doctor or request.user.is_staff %}
+            {% if perms.doctors.view_relatorios or request.user.is_staff %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReu"
                     aria-expanded="true" aria-controls="collapseReu">
