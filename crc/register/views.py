@@ -403,8 +403,9 @@ def list_pioneiros(request):
     filter_search = {}
     if request.GET:
         request_get = request.GET.copy()
-        if 'mes' in request_get and request_get['mes']: request_get['mes'] = request_get['mes'] + '-01' # Bug que apaga data no formulario de filtro.
-        form = FindPioneirosForm(request_get)
+        form = FindPioneirosForm()
+        form.fields['mes'].initial = request_get['mes']
+        form.fields['publicador'].initial = request_get['publicador']
     else:
         form = FindPioneirosForm()
         form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
@@ -420,8 +421,10 @@ def list_pioneiros(request):
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
     for key, value in request.GET.items():
-        if key in ['publicador', 'mes'] and value:
-            filter_search['%s__icontains' % key] = value
+        if key in ['publicador'] and value:
+            filter_search[key] = value
+        elif key in ['mes'] and value:
+            filter_search[key] = value + '-01'
     list_pioneiros = Pioneiros.objects.filter(**filter_search)
     template = loader.get_template('pioneiros/list.html')
     context = {

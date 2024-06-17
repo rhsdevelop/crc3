@@ -28,7 +28,7 @@ class Relatorios(models.Model):
     tipo = models.IntegerField(db_column='Tipo', choices=TIPO)  # Usuário não edita.
     reuniao_meio = models.IntegerField(db_column='Reuniao_Meio', blank=True, null=True)
     reuniao_fim = models.IntegerField(db_column='Reuniao_Fim', blank=True, null=True)
-    atv_local = models.IntegerField(db_column='Atv_Local', blank=True, null=True)
+    atv_local = models.BooleanField(db_column='Atv_Local', verbose_name='Atividade na congregação', default=True)
     create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='relatorio_user_create', blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
     assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='relatorio_user_assign', blank=True, null=True)

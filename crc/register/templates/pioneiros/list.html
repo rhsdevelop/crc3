@@ -54,7 +54,7 @@
           {% for pioneiros in list_pioneiros %}
           <tr>
             <th scope="row">{{ pioneiros.publicador }}</th>
-            <td>{{ pioneiros.mes }}</td>
+            <td>{{ pioneiros.mes|date:'m-Y' }}</td>
             <td>{{ pioneiros.observacao }}</td>
             <td>{{ pioneiros.create_user }}</td>
             <td>{{ pioneiros.created }}</td>

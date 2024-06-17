@@ -99,7 +99,7 @@ class Publicadores(models.Model):
     batismo = models.DateField(db_column='Batismo', blank=True, null=True)
     esperanca = models.IntegerField(db_column='Esperanca', choices=ESPERANCA)
     privilegio = models.IntegerField(db_column='Privilegio', choices=PRIVILEGIO)
-    tipo = models.IntegerField(db_column='Tipo', choices=TIPO)
+    tipo = models.IntegerField(db_column='Tipo', choices=TIPO[0:3])
     sexo = models.IntegerField(db_column='Sexo', choices=SEXO)
     observacao = models.TextField(db_column='Observacao', blank=True, null=True)
     situacao = models.IntegerField(db_column='Situacao', choices=SITUACAO)

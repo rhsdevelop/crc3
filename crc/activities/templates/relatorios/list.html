@@ -4,7 +4,7 @@
 {% block corpo %}
 {% if perms.activities.add_relatorios %}
 <div class="col-lg-12">
-  <a href="/relatorios/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Digitar Relatório</button></a>
+  <a href="/activities/relatorios/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Digitar Relatório</button></a>
 </div>
 <br>
 {% endif %}
@@ -24,6 +24,18 @@
             </div>
             <div class="col-lg-3">
               {{ form.grupo|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.tipo|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.privilegio|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_inicio|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_fim|bootstrap }}
             </div>
           </div>
           <div class="col-lg-12">
@@ -46,24 +58,19 @@
             <th scope="col">Mês</th>
             <th scope="col">Horas</th>
             <th scope="col">Estudos</th>
-            <th scope="col">Horas</th>
-            <th scope="col">Observacao</th>
+            <th scope="col">Observação</th>
             <th scope="col">Tipo</th>
-            <th scope="col">Data de criação</th>
-            <th scope="col">Ações</th>
           </tr>
         </thead>
         <tbody>
           {% for relatorios in list_relatorios %}
           <tr>
             <th scope="row">{{ relatorios.publicador }}</th>
-            <td>{{ relatorios.mes }}</td>
+            <td>{{ relatorios.mes|date:'m-Y' }}</td>
             <td>{{ relatorios.horas }}</td>
             <td>{{ relatorios.estudos }}</td>
-            <td>{{ relatorios.tipo }}</td>
-            <td>{{ relatorios.create_user }}</td>
-            <td>{{ relatorios.created }}</td>
-            <td>{% if perms.register.change_relatorios %}<a href="/relatorios/{{ relatorios.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>{% endif %}</td>
+            <td>{{ relatorios.observacao }}</td>
+            <td>{{ relatorios.get_tipo_display }}</td>
           </tr>
           {% endfor %}
         </tbody>

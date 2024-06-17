@@ -2,6 +2,9 @@
 {% load bootstrap %}
 
 {% block corpo %}
+<div class="col-lg-12">
+  <a href="/activities/relatorios/list/" ><button class="btn btn-info"><span class="fas fa-backward"></span> Voltar para lista de relatórios</button></a>
+</div><br>
 <div class="container-fluid">
   <h5>Preencher dados</h5>
   <div>
@@ -9,7 +12,32 @@
       <div class="row">
         {% csrf_token %}
         <div class="col-lg-6">
-          {{ form|bootstrap }}
+          <div class="row">
+            <div class="col-lg-12">
+              {{ form.publicador|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.tipo|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.mes|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.presente|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.horas|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.estudos|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.observacao|bootstrap }}
+            </div>
+            <div class="col-lg-12">
+              {{ form.atv_local|bootstrap }}
+            </div>
+          </div>
         </div>
       </div>
       <div class="col-lg-12">
@@ -19,4 +47,41 @@
   </div>
 </div>
 <br>
+{% endblock %}
+{% block js %}
+<script type="text/javascript">
+  $(document).ready(function(){
+    $('#id_publicador').on('change',function(e){
+      if(this.value != ''){
+        console.log(this.value);
+        $.ajax('?publicador='+this.value, {
+          url:'.',
+          type:'GET',
+          success: function(data) {
+            var obj = JSON.parse(data);
+            $('#id_tipo')
+              .find('option')
+              .remove()
+              .end();
+            for(var i = 0;i<obj.length;i++){
+              $("#id_tipo").append('<option value="'+obj[i][0]+'">'+obj[i][1]+'</option>');
+              if(obj[i][0] == 0){
+                console.log(obj[i][0])
+                $('#id_horas').attr('disabled', 'disabled');
+              }else{
+                $('#id_horas').removeAttr('disabled', 'disabled');
+              }
+            }
+          }
+        });
+      };
+      if(!this.value){
+        $('#id_tipo')
+        .find('option')
+        .remove()
+        .end();
+      };
+    });
+  });
+</script>
 {% endblock %}
