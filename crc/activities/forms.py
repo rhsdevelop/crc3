@@ -39,3 +39,22 @@ class FindRelatoriosForm(forms.ModelForm):
     class Meta:
         model = Relatorios
         fields = ['publicador', 'tipo']
+
+
+class FindResumoForm(forms.Form):
+    grupo = forms.ModelChoiceField(queryset=Grupos.objects.all(), required=False)
+    somente_ativos = forms.BooleanField(initial=True, required=False)
+    mes_inicio = forms.DateField(
+        label='Mês inicial',
+        widget=forms.widgets.TextInput(
+            attrs={'type': "month"}
+        ),
+        required=False
+    )
+    mes_fim = forms.DateField(
+        label='Mês final',
+        widget=forms.widgets.TextInput(
+            attrs={'type': "month"}
+        ),
+        required=False
+    )

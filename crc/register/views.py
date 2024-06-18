@@ -50,7 +50,18 @@ def add_cong(request):
 @login_required
 @permission_required('register.change_cong')
 def edit_cong(request, cong_id):
-    cong = Cong.objects.get(id=cong_id)
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            if cong_id == crc_user.first().cong_id:
+                cong = Cong.objects.get(id=cong_id)
+            else:
+                raise Http404('Congregação indisponível!')
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        cong = Cong.objects.get(id=cong_id)
     if request.POST:
         form = AddCongForm(request.POST, instance=cong)
         item = form.save(commit=False)
@@ -120,7 +131,15 @@ def add_conguser(request):
 @login_required
 @permission_required('register.change_conguser')
 def edit_conguser(request, conguser_id):
-    conguser = CongUser.objects.get(id=conguser_id)
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            conguser = CongUser.objects.get(id=conguser_id, cong_id=crc_user.first().cong_id)
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        conguser = CongUser.objects.get(id=conguser_id)
     if request.POST:
         form = AddCongUserForm(request.POST, instance=conguser)
         item = form.save(commit=False)
@@ -149,7 +168,6 @@ def list_conguser(request):
         crc_user = CongUser.objects.filter(user=request.user)
         if crc_user:
             filter_search['cong_id'] = crc_user.first().cong_id
-            print(filter_search['cong_id'])
         else:
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
@@ -202,7 +220,15 @@ def add_grupos(request):
 @login_required
 @permission_required('register.change_grupos')
 def edit_grupos(request, grupos_id):
-    grupos = Grupos.objects.get(id=grupos_id)
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            grupos = Grupos.objects.get(id=grupos_id, cong_id=crc_user.first().cong_id)
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        grupos = Grupos.objects.get(id=grupos_id)
     if request.POST:
         form = AddGruposForm(request.POST, instance=grupos)
         if not request.user.is_staff:
@@ -275,7 +301,13 @@ def add_publicadores(request):
         return redirect('/publicadores/list')
     form = AddPublicadoresForm()
     if not request.user.is_staff:
-        form.fields['cong'].widget = forms.HiddenInput()
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            form.fields['cong'].widget = forms.HiddenInput()
+            form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.first().cong_id).order_by('grupo')
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
     template = loader.get_template('publicadores/add.html')
     context = {
         'title': 'Adicionar Novo Publicador',
@@ -288,7 +320,15 @@ def add_publicadores(request):
 @login_required
 @permission_required('register.change_publicadores')
 def edit_publicadores(request, publicadores_id):
-    publicadores = Publicadores.objects.get(id=publicadores_id)
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            publicadores = Publicadores.objects.get(id=publicadores_id, cong_id=crc_user.first().cong_id)
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        publicadores = Publicadores.objects.get(id=publicadores_id)
     if request.POST:
         form = AddPublicadoresForm(request.POST, instance=publicadores)
         if not request.user.is_staff:
@@ -305,6 +345,7 @@ def edit_publicadores(request, publicadores_id):
     form = AddPublicadoresForm(instance=publicadores)
     if not request.user.is_staff:
         form.fields['cong'].widget = forms.HiddenInput()
+        form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.first().cong_id).order_by('grupo')
     template = loader.get_template('publicadores/edit.html')
     context = {
         'title': 'Dados de Publicador Selecionado',
@@ -391,7 +432,15 @@ def add_pioneiros(request):
 @login_required
 @permission_required('register.delete_pioneiros')
 def delete_pioneiros(request, pioneiros_id):
-    pioneiros = Pioneiros.objects.get(id=pioneiros_id)
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            pioneiros = Pioneiros.objects.get(id=pioneiros_id, publicador__cong_id=crc_user.first().cong_id)
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        pioneiros = Pioneiros.objects.get(id=pioneiros_id)
     pioneiros.delete()
     messages.success(request, 'Registro removido com sucesso.')
     return redirect('/pioneiros/list/')
