@@ -228,9 +228,9 @@ def imprime_cartao_resumo(arquivo, meses_intervalo, filter_search, formulario=Tr
                             icanvas.drawString(275, 628 - col, 'x')
                         if item['tipo'] in [1, 2]:
                             icanvas.drawString(340, 628 - col, str(item['horas']))
+                        icanvas.drawString(390, 628 - col, str(item['membros']) + ' publicador%s.' % 'es' if item['membros'] != 1 else '')
                         soma['Horas'] = soma['Horas'] + int(item['horas'])
                         soma['Estudos'] = soma['Estudos'] + int(item['estudos'])
-                        icanvas.drawString(390, 628 - col, item['membros'] + ' publicador%s.' % 'es' if item['membros'] != 1 else '')
                     except:
                         pass
                 first = False
