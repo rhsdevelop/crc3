@@ -69,7 +69,7 @@
             <td>{{ relatorios.mes|date:'m-Y' }}</td>
             <td>{{ relatorios.horas }}</td>
             <td>{{ relatorios.estudos }}</td>
-            <td>{{ relatorios.observacao }}</td>
+            <td>{{ relatorios.observacao|default_if_none:"" }}</td>
             <td>{{ relatorios.get_tipo_display }}</td>
           </tr>
           {% endfor %}

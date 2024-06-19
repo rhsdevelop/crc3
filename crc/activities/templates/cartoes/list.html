@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+{% if perms.activities.add_relatorios %}
+<div class="col-lg-12">
+  <a href="/activities/relatorios/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Imprimir cartões por Grupo de Serviço</button></a>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <!-- Card Header - Accordion -->
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <!-- Card Content - Collapse -->
+  <div class="collapse show" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {{ form.publicador|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.grupo|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_inicio|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_fim|bootstrap }}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Gerar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+{% endblock %}

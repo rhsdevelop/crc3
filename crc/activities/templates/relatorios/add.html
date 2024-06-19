@@ -54,7 +54,38 @@
     $('#id_publicador').on('change',function(e){
       if(this.value != ''){
         console.log(this.value);
-        $.ajax('?publicador='+this.value, {
+        $.ajax('?publicador=' + this.value + '&mes=' + document.getElementById("id_mes").value, {
+          url:'.',
+          type:'GET',
+          success: function(data) {
+            var obj = JSON.parse(data);
+            $('#id_tipo')
+              .find('option')
+              .remove()
+              .end();
+            for(var i = 0;i<obj.length;i++){
+              $("#id_tipo").append('<option value="'+obj[i][0]+'">'+obj[i][1]+'</option>');
+              if(obj[i][0] == 0){
+                console.log(obj[i][0])
+                $('#id_horas').attr('disabled', 'disabled');
+              }else{
+                $('#id_horas').removeAttr('disabled', 'disabled');
+              }
+            }
+          }
+        });
+      };
+      if(!this.value){
+        $('#id_tipo')
+        .find('option')
+        .remove()
+        .end();
+      };
+    });
+    $('#id_mes').on('change',function(e){
+      if(this.value != ''){
+        console.log(this.value);
+        $.ajax('?publicador=' + document.getElementById("id_publicador").value + '&mes=' + this.value, {
           url:'.',
           type:'GET',
           success: function(data) {

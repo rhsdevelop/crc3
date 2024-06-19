@@ -410,6 +410,7 @@ def add_pioneiros(request):
         }
         Pioneiros.objects.create(**new_item)
         messages.success(request, 'Registro adicionado com sucesso.')
+        messages.warning(request, 'Se você já digitou o relatório do publicador, favor atualize os dados.')
         return redirect('/pioneiros/list')
     form = AddPioneirosForm()
     form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
@@ -450,13 +451,12 @@ def delete_pioneiros(request, pioneiros_id):
 @permission_required('register.view_pioneiros')
 def list_pioneiros(request):
     filter_search = {}
+    form = FindPioneirosForm()
     if request.GET:
         request_get = request.GET.copy()
-        form = FindPioneirosForm()
         form.fields['mes'].initial = request_get['mes']
         form.fields['publicador'].initial = request_get['publicador']
     else:
-        form = FindPioneirosForm()
         form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
         filter_search['mes'] = datetime.date.today().replace(day=1)
     form.fields['publicador'].required = False

@@ -53,10 +53,17 @@
           {% for resumo in list_resumo %}
           <tr>
             <th scope="row">{{ resumo.mes|date:'m-Y' }}</th>
+            {% if resumo.tipo == "TOTAL" %}
+            <td><b>{{ resumo.tipo }}</b></td>
+            <td><b>{{ resumo.membros }}</b></td>
+            <td><b>{{ resumo.horas }}</b></td>
+            <td><b>{{ resumo.estudos }}</b></td>
+            {% else %}
             <td>{{ resumo.tipo }}</td>
             <td>{{ resumo.membros }}</td>
             <td>{{ resumo.horas }}</td>
             <td>{{ resumo.estudos }}</td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
