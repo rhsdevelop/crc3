@@ -17,8 +17,8 @@ def imprime_cartao(arquivo, meses_intervalo, publicador_id, formulario=True, cab
             icanvas.drawString(86 + ct, 146 + qt, 'x')   # Privilégio
         if tipo == 2:
             icanvas.drawString(212 + ct, 146 + qt, 'x')     # Pioneiro Regular
-        icanvas.drawString(135 + ct, 179 + qt, datetime.datetime.strftime(nascimento, '%d/%m/%Y'))
-        icanvas.drawString(118 + ct, 162 + qt, datetime.datetime.strftime(batismo, '%d/%m/%Y'))
+        icanvas.drawString(135 + ct, 179 + qt, '' if not nascimento else datetime.datetime.strftime(nascimento, '%d/%m/%Y'))
+        icanvas.drawString(118 + ct, 162 + qt, '' if not batismo else datetime.datetime.strftime(batismo, '%d/%m/%Y'))
         if esperanca == 0:
             icanvas.drawString(386 + ct, 162 + qt, 'x')   # Esperança
         elif esperanca == 1:
