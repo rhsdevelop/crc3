@@ -2,12 +2,6 @@
 {% load bootstrap %}
 
 {% block corpo %}
-{% if perms.activities.add_relatorios %}
-<div class="col-lg-12">
-  <a href="/activities/relatorios/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Imprimir cartões por Grupo de Serviço</button></a>
-</div>
-<br>
-{% endif %}
 <div class="card shadow mb-4">
   <!-- Card Header - Accordion -->
   <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
@@ -30,6 +24,9 @@
             </div>
             <div class="col-lg-3">
               {{ form.mes_fim|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.somente_resumo|bootstrap }}
             </div>
           </div>
           <div class="col-lg-12">

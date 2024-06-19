@@ -63,7 +63,6 @@ class FindResumoForm(forms.Form):
 class FindCartoesForm(forms.Form):
     publicador = forms.ModelChoiceField(queryset=Publicadores.objects.all(), required=False)
     grupo = forms.ModelChoiceField(queryset=Grupos.objects.all(), required=False)
-    somente_ativos = forms.BooleanField(initial=True, required=False)
     mes_inicio = forms.DateField(
         label='Mês inicial',
         widget=forms.widgets.TextInput(
@@ -78,3 +77,4 @@ class FindCartoesForm(forms.Form):
         ),
         required=False
     )
+    somente_resumo = forms.BooleanField(initial=False, required=False)

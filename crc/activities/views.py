@@ -1,10 +1,12 @@
-import json
 import datetime
+import json
+import os
 from io import BytesIO, StringIO
+from zipfile import ZipFile
 
 from register.models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros, TIPO
 from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindCartoesForm
-from .helpers import imprime_cartao
+from .helpers import imprime_cartao, imprime_cartao_resumo
 from .models import Relatorios
 
 from django import forms
@@ -249,16 +251,37 @@ def list_cartoes(request):
         hoje = datetime.date.today()
         ano_servico = hoje.year if hoje.month >= 9 else hoje.year - 1
         meses_intervalo = [datetime.date(ano_servico, 9, 1), (hoje.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)]
+        somente_resumo = False
         publicador_id = None
+        grupo_id = None
+        if 'somente_resumo' in request.GET and request.GET['somente_resumo']:
+            somente_resumo = True
         if 'publicador' in request.GET and request.GET['publicador']:
             publicador_id = request.GET['publicador']
+        if 'grupo' in request.GET and request.GET['grupo']:
+            grupo_id = request.GET['grupo']
         if 'mes_inicio' in request.GET and request.GET['mes_inicio']:
             meses_intervalo[0] = datetime.datetime.strptime(request.GET['mes_inicio'] + '-01', '%Y-%m-%d')
         if 'mes_fim' in request.GET and request.GET['mes_fim']:
             meses_intervalo[1] = datetime.datetime.strptime(request.GET['mes_fim'] + '-01', '%Y-%m-%d')
-        print(meses_intervalo)
         arquivo = BytesIO()
-        if publicador_id:
+        if somente_resumo:
+            filter_search = {
+                'mes__gte': meses_intervalo[0],
+                'mes__lte': meses_intervalo[1],
+                'publicador__situacao': 1,
+                'atv_local': True,
+                'tipo__in': [0, 1, 2]
+            }
+            if grupo_id: filter_search['publicador__grupo_id'] = grupo_id
+            resp = imprime_cartao_resumo(arquivo, meses_intervalo, filter_search)
+            response = HttpResponse(content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="Cartão-Resumo.pdf"'
+            pdf = arquivo.getvalue()
+            arquivo.close()
+            response.write(pdf)
+            return response
+        elif publicador_id:
             publicadores = Publicadores.objects.get(id=publicador_id)
             resp = imprime_cartao(arquivo, meses_intervalo, publicador_id)
             response = HttpResponse(content_type='application/pdf')
@@ -267,6 +290,29 @@ def list_cartoes(request):
             arquivo.close()
             response.write(pdf)
             return response
+        elif grupo_id:
+            grupos = Grupos.objects.get(pk=grupo_id)
+            publicadores = Publicadores.objects.filter(grupo_id=grupo_id, situacao=1).order_by('nome')
+            file_list = []
+            for pub in publicadores:
+                filename = 'Cartão-%s.pdf' % pub.nome
+                try:
+                    resp = imprime_cartao(filename, meses_intervalo, pub.id)
+                except:
+                    pass
+                file_list.append(filename)
+            zip_pub = ZipFile(arquivo, mode='w')
+            #zip_pub = ZipFile(grupos.grupo + '.zip', mode='w')
+            for i in file_list:
+                zip_pub.write(i)
+                os.remove(i)
+            zip_name = grupos.grupo + '.zip'
+            return_response = HttpResponse(content_type='application/force-download')
+            return_response['Content-Disposition'] = 'attachment; filename="%s"' % zip_name
+            pub_arq = arquivo.getvalue()
+            return_response.write(pub_arq)
+            arquivo.close()
+            return return_response
         else:
             messages.error(request, 'Selecione um publicador ou um grupo de serviço.')
     list_cartoes = Publicadores.objects.filter(**filter_search)
