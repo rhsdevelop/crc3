@@ -12,12 +12,16 @@ from .forms import (AddCongForm, FindCongForm, AddGruposForm, FindGruposForm,
                     AddPublicadoresForm, FindPublicadoresForm, AddPioneirosForm,
                     FindPioneirosForm)
 from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
+from .schedule import atualiza_pioneiros
 
 # Create your views here.
 
 
 @login_required
 def index(request):
+    # Atualiza pioneiros
+    if datetime.datetime.now().hour in [8, 12, 16, 20]:
+        atualiza_pioneiros()
     template = loader.get_template('index.html')
     context = {
         'title': 'CRC - Controle de Registros de Congregação - V.3.0',
