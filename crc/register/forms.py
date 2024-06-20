@@ -103,3 +103,11 @@ class FindPublicadoresForm(forms.ModelForm):
     class Meta:
         model = Publicadores
         fields = ['nome', 'endereco', 'esperanca', 'privilegio', 'tipo', 'situacao', 'grupo']
+
+
+class AddProfileForm(forms.Form):
+    first_name = forms.CharField(label='Primeiro nome')
+    last_name = forms.CharField(label='Sobrenome')
+    email = forms.EmailField(label='Email')
+    senha = forms.CharField(label='Digite a nova senha', widget=forms.PasswordInput())
+    senha_repete = forms.CharField(label='Digite novamente a senha', widget=forms.PasswordInput())

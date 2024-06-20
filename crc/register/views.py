@@ -3,6 +3,7 @@ import datetime
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.models import User
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.template import loader
@@ -10,7 +11,7 @@ from django.template import loader
 from .forms import (AddCongForm, FindCongForm, AddGruposForm, FindGruposForm,
                     AddCongUserForm, FindCongUserForm,
                     AddPublicadoresForm, FindPublicadoresForm, AddPioneirosForm,
-                    FindPioneirosForm)
+                    FindPioneirosForm, AddProfileForm)
 from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
 from .schedule import atualiza_pioneiros
 
@@ -484,6 +485,34 @@ def list_pioneiros(request):
         'title': 'Relação de Pioneiros',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_pioneiros': list_pioneiros,
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
+
+
+@login_required
+def edit_profile(request):
+    if request.POST:
+        if request.POST['senha'] != request.POST['senha_repete']:
+            messages.error(request, 'As senhas digitadas são diferentes. Por favor digite a senha e repita para confirmar a alteração.')
+        else:
+            user = User.objects.get(pk=request.user.id)
+            user.first_name = request.POST['first_name']
+            user.last_name = request.POST['last_name']
+            user.email = request.POST['email']
+            user.set_password(request.POST['senha'])
+            user.save()
+            messages.success(request, 'Dados editados com sucesso.')
+            return redirect('/')
+    form = AddProfileForm()
+    form.fields['first_name'].initial = request.user.first_name
+    form.fields['last_name'].initial = request.user.last_name
+    form.fields['email'].initial = request.user.email
+    
+    template = loader.get_template('profile/edit.html')
+    context = {
+        'title': 'Dados pessoais do usuário',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'form': form,
     }
     return HttpResponse(template.render(context, request))
