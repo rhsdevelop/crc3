@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+<div class="container-fluid">
+  <h5>Preencher dados</h5>
+  <div>
+    <form action="." class="form-horizontal" method="post">
+      <div class="row">
+        {% csrf_token %}
+        <div class="col-lg-6">
+          {{ form|bootstrap }}
+        </div>
+      </div>
+      <div class="col-lg-12">
+        <button class="btn btn-primary" type="submit">Atualizar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<br>
+{% endblock %}
+{% block js %}
+<script type="text/javascript">
+  $(document).ready(function(){
+    $('#id_data').on('change',function(e){
+      if(this.value != ''){
+        console.log(this.value);
+        $.ajax('?data=' + this.value, {
+          url:'.',
+          type:'GET',
+          success: function(data) {
+            var obj = JSON.parse(data);
+            $("select#id_tipo").val(obj);
+          }
+        });
+      };
+      if(!this.value){
+        $('#id_tipo')
+        .find('option')
+        .remove()
+        .end();
+      };
+    });
+    $('#id_mes').on('change',function(e){
+      if(this.value != ''){
+        console.log(this.value);
+        $.ajax('?publicador=' + document.getElementById("id_publicador").value + '&mes=' + this.value, {
+          url:'.',
+          type:'GET',
+          success: function(data) {
+            var obj = JSON.parse(data);
+            $('#id_tipo')
+              .find('option')
+              .remove()
+              .end();
+            for(var i = 0;i<obj.length;i++){
+              $("#id_tipo").append('<option value="'+obj[i][0]+'">'+obj[i][1]+'</option>');
+              if(obj[i][0] == 0){
+                console.log(obj[i][0])
+                $('#id_horas').attr('disabled', 'disabled');
+              }else{
+                $('#id_horas').removeAttr('disabled', 'disabled');
+              }
+            }
+          }
+        });
+      };
+      if(!this.value){
+        $('#id_tipo')
+        .find('option')
+        .remove()
+        .end();
+      };
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% load bootstrap %}
+
+{% block corpo %}
+{% if perms.meetings.add_reunioes %}
+<div class="col-lg-12">
+  <a href="/meetings/reunioes/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Inserir Assistência</button></a>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <!-- Card Header - Accordion -->
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <!-- Card Content - Collapse -->
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {{ form.tipo|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_inicio|bootstrap }}
+            </div>
+            <div class="col-lg-3">
+              {{ form.mes_fim|bootstrap }}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Data</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Assistência</th>
+            <th scope="col">Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reunioes in list_reunioes %}
+          <tr>
+            <th scope="row">{{ reunioes.data|date:'m-Y' }}</th>
+            <td>{{ reunioes.data|date:'d/m/Y' }}</td>
+            <td>{{ reunioes.get_tipo_display }}</td>
+            <td>{{ reunioes.assistencia }}</td>
+            <td>{{ reunioes.observacao|default_if_none:"" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<!-- Page level plugins -->
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+
+<!-- Page level custom scripts -->
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+<script type="text/javascript">
+  $(document).ready( function() {
+    $('#example').dataTable( {
+      "pageLength": 25
+    });
+  })
+</script>
+{% endblock %}

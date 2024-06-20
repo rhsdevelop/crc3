@@ -104,7 +104,7 @@
                 </div>
             </li>
             {% endif %}
-            {% if perms.doctors.view_relatorios or request.user.is_staff %}
+            {% if perms.meetings.view_reunioes or request.user.is_staff %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReu"
                     aria-expanded="true" aria-controls="collapseReu">
@@ -114,9 +114,8 @@
                 <div id="collapseReu" class="collapse" aria-labelledby="headingReu" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Registros armazenados:</h6>
-                        <a class="collapse-item" href="/specialties/list/">Especialidades</a>
-                        <a class="collapse-item" href="/doctors/list/">Médicos</a>
-                        <a class="collapse-item" href="/phones/list/">Contatos Telefônicos</a>
+                        <a class="collapse-item" href="/meetings/reunioes/add/">Preencher reuniões</a>
+                        <a class="collapse-item" href="/meetings/reunioes/list/">Demonstrativos e Cartões</a>
                     </div>
                 </div>
             </li>

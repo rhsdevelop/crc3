@@ -34,6 +34,7 @@ ALLOWED_HOSTS = ['crc-rhsdoctors.pythonanywhere.com', 'localhost']
 INSTALLED_APPS = [
     'register.apps.RegisterConfig',
     'activities.apps.ActivitiesConfig',
+    'meetings.apps.MeetingsConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

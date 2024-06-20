@@ -173,7 +173,7 @@ def list_resumo(request):
     list_relatorios = Relatorios.objects.filter(**filter_search)
     list_resumo = []
     if list_relatorios:
-        list_relatorios = Relatorios.objects.filter(**filter_search).values('mes', 'tipo').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos'))
+        list_relatorios = Relatorios.objects.filter(**filter_search).values('mes', 'tipo').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos')).order_by('tipo', 'mes')
         tipos = {x[0]: x[1] for x in TIPO}
         ultimo_mes = list_relatorios[0]['mes']
         soma = {'membros': 0, 'horas': 0, 'estudos': 0}
