@@ -22,10 +22,13 @@ from register.models import CongUser
 @permission_required('meetings.add_reunioes')
 def add_reunioes(request):
     if request.GET and 'data' in request.GET and request.GET['data']:
-        date_initial = datetime.datetime.strptime(request.GET['data'], '%Y-%m-%d')
-        if date_initial.weekday() in [5, 6]:
-            CHOICES = '1'
-        else:
+        try:
+            date_initial = datetime.datetime.strptime(request.GET['data'], '%Y-%m-%d')
+            if date_initial.weekday() in [5, 6]:
+                CHOICES = '1'
+            else:
+                CHOICES = '0'
+        except:
             CHOICES = '0'
         json_string = json.dumps(CHOICES)
         return HttpResponse(json_string)
@@ -51,11 +54,9 @@ def add_reunioes(request):
         )
         if reunioes:
             reunioes.update(
-                horas=0 if not 'horas' in request_post else request_post['horas'],
-                estudos=request_post['estudos'],
-                observacao=request_post['observacao'],
-                tipo=3 if not 'presente' in request_post else request_post['tipo'],
-                atv_local=True if request_post['atv_local'] == 'on' else False,
+                tipo = request_post['tipo'],
+                assistencia = request_post['assistencia'],
+                observacao = request_post['observacao'],
                 assign_user_id=request.user.id,
             )
             messages.success(request, 'Registro já existia e foi atualizado com sucesso.')
