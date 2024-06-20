@@ -324,3 +324,41 @@ def list_cartoes(request):
         'form': form,
     }
     return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('activities.view_relatorios')
+def relatorios_pendentes(request):
+    filter_search = {'situacao': 1}
+    form = FindResumoForm()
+    if request.GET:
+        request_get = request.GET.copy()
+        form.fields['grupo'].initial = request_get['grupo']
+    else:
+        pass
+    crc_user = None
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            filter_search['cong_id'] = crc_user.first().cong_id
+            form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.first().cong_id).order_by('grupo')
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    for key, value in request.GET.items():
+        if key in ['grupo'] and value:
+            filter_search[key] = value
+    filter_relatorios = {'mes': (datetime.date.today().replace(day=1) - datetime.timedelta(days=1)).replace(day=1)}
+    if crc_user: filter_relatorios['publicador__cong_id'] = crc_user.first().cong_id
+    relatorios = Relatorios.objects.filter(**filter_relatorios)
+    relatorios_entregues = [x.publicador_id for x in relatorios]
+    list_publicadores = Publicadores.objects.filter(**filter_search).exclude(id__in=relatorios_entregues)
+    template = loader.get_template('pendentes/list.html')
+    context = {
+        'title': 'Relatórios de Campo - Pendentes de entregar',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'list_publicadores': list_publicadores,
+        'form': form,
+        'mes': datetime.datetime.strftime((datetime.date.today().replace(day=1) - datetime.timedelta(days=1)), '%m/%Y')
+    }
+    return HttpResponse(template.render(context, request))

@@ -12,4 +12,5 @@ urlpatterns = [
     path('resumo/list/', views.list_resumo, name='list_resumo'),
     path('cartoes/list/', views.list_cartoes, name='list_cartoes'),
     path('cartoes/<int:publicadores_id>/generate/', views.generate_cartoes, name='generate_cartoes'),
+    path('pendentes/list/', views.relatorios_pendentes, name='list_pendentes'),
 ]

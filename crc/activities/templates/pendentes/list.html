@@ -2,12 +2,6 @@
 {% load bootstrap %}
 
 {% block corpo %}
-{% if perms.register.add_pioneiros %}
-<div class="col-lg-12">
-  <a href="/pioneiros/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Adicionar Pioneiro Auxiliar</button></a>
-</div>
-<br>
-{% endif %}
 <div class="card shadow mb-4">
   <!-- Card Header - Accordion -->
   <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
@@ -20,10 +14,7 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.publicador|bootstrap }}
-            </div>
-            <div class="col-lg-3">
-              {{ form.mes|bootstrap }}
+              {{ form.grupo|bootstrap }}
             </div>
           </div>
           <div class="col-lg-12">
@@ -42,23 +33,21 @@
       <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
         <thead>
           <tr>
-            <th scope="col">Publicador</th>
             <th scope="col">Mês</th>
-            <th scope="col">Observação</th>
-            <th scope="col">Usuário</th>
-            <th scope="col">Data de criação</th>
-            <th scope="col">Ações</th>
+            <th scope="col">Publicador</th>
+            <th scope="col">Telefone Fixo</th>
+            <th scope="col">Telefone Móvel</th>
+            <th scope="col">Grupo</th>
           </tr>
         </thead>
         <tbody>
-          {% for pioneiros in list_pioneiros %}
+          {% for publicadores in list_publicadores %}
           <tr>
-            <th scope="row">{{ pioneiros.publicador }}</th>
-            <td>{{ pioneiros.mes|date:'m-Y' }}</td>
-            <td>{{ pioneiros.observacao }}</td>
-            <td>{{ pioneiros.create_user }}</td>
-            <td>{{ pioneiros.created }}</td>
-            <td>{% if perms.register.delete_pioneiros %}<a href="/pioneiros/{{ pioneiros.id }}/delete/" ><button class="btn btn-warning"><span class="fas fa-trash"></span></button></a>{% endif %}</td>
+            <th scope="row">{{ mes }}</th>
+            <td>{{ publicadores.nome }}</td>
+            <td>{{ publicadores.telefone_fixo|default_if_none:"" }}</td>
+            <td>{{ publicadores.telefone_celular|default_if_none:"" }}</td>
+            <td>{{ publicadores.grupo.grupo }}</td>
           </tr>
           {% endfor %}
         </tbody>
