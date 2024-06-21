@@ -31,6 +31,7 @@ class FindReunioesForm(forms.ModelForm):
         ),
         required=False
     )
+    somente_resumo = forms.BooleanField(initial=False, required=False)
 
     class Meta:
         model = Reunioes

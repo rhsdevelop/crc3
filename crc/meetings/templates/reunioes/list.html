@@ -28,9 +28,13 @@
             <div class="col-lg-3">
               {{ form.mes_fim|bootstrap }}
             </div>
+            <div class="col-lg-3">
+              {{ form.somente_resumo|bootstrap }}
+            </div>
           </div>
           <div class="col-lg-12">
-            <button class="btn btn-primary" type="submit">Buscar</button>
+            <button class="btn btn-primary" type="submit">Buscar</button>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+            <button class="btn btn-info" type="submit" formaction="/meetings/reunioes/list/printcard/"><span class="fas fa-print"></span> Imprimir Cartão</button>
           </div>
         </form>
       </div>
@@ -43,6 +47,28 @@
   <div class="card-body">
     <div class="table-responsive">
       <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
+        {% if resumo %}
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Reuniões</th>
+            <th scope="col">Total</th>
+            <th scope="col">Média</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reunioes in list_reunioes %}
+          <tr>
+            <th scope="row">{{ reunioes.mes|date:'m-Y' }}</th>
+            <td>{{ reunioes.tipo }}</td>
+            <td>{{ reunioes.eventos }}</td>
+            <td>{{ reunioes.total }}</td>
+            <td>{{ reunioes.media }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% else %}
         <thead>
           <tr>
             <th scope="col">Mês</th>
@@ -63,6 +89,7 @@
           </tr>
           {% endfor %}
         </tbody>
+        {% endif %}
       </table>
     </div>
   </div>

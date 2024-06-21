@@ -9,12 +9,14 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Avg, Case, Count, Sum, When
+from django.db.models.functions import TruncMonth
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.template import loader
 
 from .forms import AddReunioesForm, FindReunioesForm
-from .models import Reunioes
+from .helpers import imprime_cartao_resumo
+from .models import Reunioes, TIPO_REUNIAO
 from register.models import CongUser
 
 
@@ -103,6 +105,7 @@ def list_reunioes(request):
         form.fields['mes_inicio'].initial = request_get['mes_inicio']
         form.fields['mes_fim'].initial = request_get['mes_fim']
         form.fields['tipo'].initial = request_get['tipo']
+        form.fields['somente_resumo'].initial = False if not 'somente_resumo' in request_get else True
     else:
         form.fields['mes_inicio'].initial = str(datetime.date.today().replace(day=1))[0:7]
         form.fields['mes_fim'].initial = str(datetime.date.today().replace(day=1))[0:7]
@@ -124,12 +127,54 @@ def list_reunioes(request):
             filter_search['data__gte'] = value + '-01'
         elif key in ['mes_fim'] and value:
             filter_search['data__lte'] = value + '-' + str(monthrange(datetime.date.today().year, datetime.date.today().month)[1])
-    list_reunioes = Reunioes.objects.filter(**filter_search).order_by('data')
+    list_reunioes = Reunioes.objects.filter(**filter_search).order_by('-data')
+    resumo = False
+    if 'somente_resumo' in request.GET and request.GET['somente_resumo']:
+        data = list_reunioes.annotate(mes=TruncMonth('data')).values('mes', 'tipo').annotate(eventos=Count('id'), total=Sum('assistencia'), media=Avg('assistencia')).order_by('-mes', 'tipo')
+        tr = {
+            0: 'Meio de Semana',
+            1: 'Fim de Semana',
+            2: 'Outro Evento'
+        }
+        list_reunioes = []
+        for item in data:
+            new_item = item.copy()
+            new_item['tipo'] = tr[new_item['tipo']]
+            list_reunioes.append(new_item)
+        resumo = True
     template = loader.get_template('reunioes/list.html')
     context = {
         'title': 'Assistência às Reuniões',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'resumo': resumo,
         'list_reunioes': list_reunioes,
         'form': form,
     }
     return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('meetings.view_reunioes')
+def printcard_reunioes(request):
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            pass
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    hoje = datetime.date.today()
+    ano_servico = hoje.year if hoje.month >= 9 else hoje.year - 1
+    meses_intervalo = [datetime.date(ano_servico, 9, 1), (hoje.replace(day=1) - datetime.timedelta(days=1))]
+    if 'mes_inicio' in request.GET and request.GET['mes_inicio']:
+        meses_intervalo[0] = datetime.datetime.strptime(request.GET['mes_inicio'] + '-01', '%Y-%m-%d')
+    if 'mes_fim' in request.GET and request.GET['mes_fim']:
+        meses_intervalo[1] = datetime.datetime.strptime(request.GET['mes_fim'] + '-' + str(monthrange(datetime.date.today().year, datetime.date.today().month)[1]), '%Y-%m-%d')
+    arquivo = BytesIO()
+    resp = imprime_cartao_resumo(arquivo, meses_intervalo, crc_user.first().cong_id)
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="Cartão Reuniões.pdf"'
+    pdf = arquivo.getvalue()
+    arquivo.close()
+    response.write(pdf)
+    return response
