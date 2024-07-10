@@ -66,7 +66,7 @@
           {% for relatorios in list_relatorios %}
           <tr>
             <th scope="row">{{ relatorios.publicador }}</th>
-            <td>{{ relatorios.mes|date:'m-Y' }}</td>
+            <td><span hidden>{{ relatorios.mes|date:'Ym' }}</span>{{ relatorios.mes|date:'m-Y' }}</td>
             <td>{{ relatorios.horas }}</td>
             <td>{{ relatorios.estudos }}</td>
             <td>{{ relatorios.observacao|default_if_none:"" }}</td>

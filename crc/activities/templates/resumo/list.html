@@ -52,7 +52,7 @@
         <tbody>
           {% for resumo in list_resumo %}
           <tr>
-            <th scope="row">{{ resumo.mes|date:'m-Y' }}</th>
+            <th scope="row"><span hidden>{{ resumo.mes|date:'Ym' }}</span>{{ resumo.mes|date:'m-Y' }}</th>
             {% if resumo.tipo == "TOTAL" %}
             <td><b>{{ resumo.tipo }}</b></td>
             <td><b>{{ resumo.membros }}</b></td>

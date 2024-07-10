@@ -60,7 +60,7 @@
         <tbody>
           {% for reunioes in list_reunioes %}
           <tr>
-            <th scope="row">{{ reunioes.mes|date:'m-Y' }}</th>
+            <th scope="row"><span hidden>{{ reunioes.mes|date:'Ym' }}</span>{{ reunioes.mes|date:'m-Y' }}</th>
             <td>{{ reunioes.tipo }}</td>
             <td>{{ reunioes.eventos }}</td>
             <td>{{ reunioes.total }}</td>
@@ -81,8 +81,8 @@
         <tbody>
           {% for reunioes in list_reunioes %}
           <tr>
-            <th scope="row">{{ reunioes.data|date:'m-Y' }}</th>
-            <td>{{ reunioes.data|date:'d/m/Y' }}</td>
+            <th scope="row"><span hidden>{{ reunioes.data|date:'Ym' }}</span>{{ reunioes.data|date:'m-Y' }}</th>
+            <td><span hidden>{{ reunioes.data|date:'Ymd' }}</span>{{ reunioes.data|date:'d/m/Y' }}</td>
             <td>{{ reunioes.get_tipo_display }}</td>
             <td>{{ reunioes.assistencia }}</td>
             <td>{{ reunioes.observacao|default_if_none:"" }}</td>
