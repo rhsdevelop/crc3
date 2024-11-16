@@ -273,6 +273,12 @@ def list_cartoes(request):
                 'atv_local': True,
                 'tipo__in': [0, 1, 2]
             }
+            crc_user = CongUser.objects.filter(user=request.user)
+            if crc_user:
+                filter_search['publicador__cong_id'] = crc_user.first().cong_id
+            else:
+                messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+                return redirect('/')
             if grupo_id: filter_search['publicador__grupo_id'] = grupo_id
             resp = imprime_cartao_resumo(arquivo, meses_intervalo, filter_search)
             response = HttpResponse(content_type='application/pdf')
