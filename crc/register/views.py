@@ -1,4 +1,6 @@
+import csv
 import datetime
+from io import StringIO
 
 from django import forms
 from django.contrib import messages
@@ -433,6 +435,49 @@ def add_pioneiros(request):
         'form': form,
     }
     return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('register.view_publicadores')
+def sheet_publicadores(request):
+    filter_search = {'situacao': 1}
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            filter_search['cong_id'] = crc_user.first().cong_id
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    list_publicadores = Publicadores.objects.filter(**filter_search)
+    fieldnames = ['nome', 'endereco', 'telefone_fixo', 'telefone_celular', 'nascimento', 'idade', 'batismo', 'tempo_batismo', 'esperanca', 'privilegio', 'tipo', 'sexo', 'observacao', 'situacao', 'grupo']
+    data = []
+    for i in list_publicadores:
+        new_pub = {
+            'nome': i.nome,
+            'endereco': i.endereco,
+            'telefone_fixo': '' if not i.telefone_fixo else i.telefone_fixo,
+            'telefone_celular': '' if not i.telefone_celular else i.telefone_celular,
+            'nascimento': '' if not i.nascimento else i.nascimento.strftime('%d/%m/%Y'),
+            'idade': '0' if not i.nascimento else datetime.date.today().year - i.nascimento.year,
+            'batismo': ''if not i.batismo else i.batismo,
+            'tempo_batismo': '0' if not i.batismo else datetime.date.today().year - i.batismo.year,
+            'esperanca': i.get_esperanca_display(),
+            'privilegio': i.get_privilegio_display(),
+            'tipo': i.get_tipo_display(),
+            'sexo': i.get_sexo_display(),
+            'observacao': '' if not i.observacao else i.observacao,
+            'situacao': i.get_situacao_display(),
+            'grupo': '' if not i.grupo else i.grupo.grupo,
+        }
+        data.append(new_pub)
+    io_report = StringIO()
+    writerio = csv.DictWriter(io_report, fieldnames=fieldnames, delimiter=';')
+    writerio.writeheader()
+    writerio.writerows(data)
+    response = HttpResponse(io_report.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=publicadores.csv'
+    messages.success(request, 'Relatório gerado com sucesso.')
+    return response
 
 
 @login_required
