@@ -24,7 +24,9 @@ SEXO = [
 SITUACAO = [
     (0, 'Inativo'),
     (1, 'Ativo'),
-    (2, 'Desligado')
+    (2, 'Mudou-se'),
+    (3, 'Removido'),
+    (4, 'Falecido'),
 ]
 CLASSE_PUB = [
     ('0', 'Normal'),
