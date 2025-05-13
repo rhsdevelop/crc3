@@ -46,7 +46,7 @@ def add_relatorios(request):
                 estudos=request_post['estudos'],
                 observacao=request_post['observacao'],
                 tipo=3 if not 'presente' in request_post else request_post['tipo'],
-                atv_local=True if request_post['atv_local'] == 'on' else False,
+                atv_local=True if 'atv_local' in request_post and request_post['atv_local'] == 'on' else False,
                 assign_user_id=request.user.id,
             )
             messages.success(request, 'Registro já existia e foi atualizado com sucesso.')
