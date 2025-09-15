@@ -1,4 +1,4 @@
-{% load bootstrap %}
+{% load bootstrap4 %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -58,8 +58,8 @@
                                             <div class="row">
                                                 <div class="col-lg-3"></div>
                                                 <div class="col-lg-6">
-                                                    {{ form.username|bootstrap }}
-                                                    {{ form.password|bootstrap }}
+                                                    {% bootstrap_field form.username %}
+                                                    {% bootstrap_field form.password %}
                                                 </div>
                                             </div>
                                         </div>

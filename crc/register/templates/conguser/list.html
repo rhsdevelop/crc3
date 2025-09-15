@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 {% if perms.register.add_conguser %}
@@ -20,10 +20,10 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.cong|bootstrap }}
+              {% bootstrap_field form.cong %}
             </div>
             <div class="col-lg-3">
-              {{ form.user|bootstrap }}
+              {% bootstrap_field form.user %}
             </div>
           </div>
           <div class="col-lg-12">

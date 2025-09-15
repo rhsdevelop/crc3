@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 <div class="col-lg-12">
@@ -14,28 +14,28 @@
         <div class="col-lg-6">
           <div class="row">
             <div class="col-lg-12">
-              {{ form.publicador|bootstrap }}
+              {% bootstrap_field form.publicador %}
             </div>
             <div class="col-lg-12">
-              {{ form.tipo|bootstrap }}
+              {% bootstrap_field form.tipo %}
             </div>
             <div class="col-lg-12">
-              {{ form.mes|bootstrap }}
+              {% bootstrap_field form.mes %}
             </div>
             <div class="col-lg-12">
-              {{ form.presente|bootstrap }}
+              {% bootstrap_field form.presente %}
             </div>
             <div class="col-lg-12">
-              {{ form.horas|bootstrap }}
+              {% bootstrap_field form.horas %}
             </div>
             <div class="col-lg-12">
-              {{ form.estudos|bootstrap }}
+              {% bootstrap_field form.estudos %}
             </div>
             <div class="col-lg-12">
-              {{ form.observacao|bootstrap }}
+              {% bootstrap_field form.observacao %}
             </div>
             <div class="col-lg-12">
-              {{ form.atv_local|bootstrap }}
+              {% bootstrap_field form.atv_local %}
             </div>
           </div>
         </div>

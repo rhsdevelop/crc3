@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 <div class="card shadow mb-4">
@@ -14,16 +14,16 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.grupo|bootstrap }}
+              {% bootstrap_field form.grupo %}
             </div>
             <div class="col-lg-3">
-              {{ form.mes_inicio|bootstrap }}
+              {% bootstrap_field form.mes_inicio %}
             </div>
             <div class="col-lg-3">
-              {{ form.mes_fim|bootstrap }}
+              {% bootstrap_field form.mes_fim %}
             </div>
             <div class="col-lg-3">
-              {{ form.somente_ativos|bootstrap }}
+              {% bootstrap_field form.somente_ativos %}
             </div>
           </div>
           <div class="col-lg-12">

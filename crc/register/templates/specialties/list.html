@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 {% if perms.doctors.add_specialty %}
@@ -20,7 +20,7 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.name|bootstrap }}
+              {% bootstrap_field form.name %}
             </div>
           </div>
           <div class="col-lg-12">

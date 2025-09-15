@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 <div class="container-fluid">
@@ -9,7 +9,7 @@
       <div class="row">
         {% csrf_token %}
         <div class="col-lg-6">
-          {{ form|bootstrap }}
+          {% bootstrap_form form %}
         </div>
         <div class="col-lg-6">
         </div>

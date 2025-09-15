@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 {% if perms.register.add_publicadores %}
@@ -21,25 +21,25 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.nome|bootstrap }}
+              {% bootstrap_field form.nome %}
             </div>
             <div class="col-lg-3">
-              {{ form.endereco|bootstrap }}
+              {% bootstrap_field form.endereco %}
             </div>
             <div class="col-lg-3">
-              {{ form.esperanca|bootstrap }}
+              {% bootstrap_field form.esperanca %}
             </div>
             <div class="col-lg-3">
-              {{ form.tipo|bootstrap }}
+              {% bootstrap_field form.tipo %}
             </div>
             <div class="col-lg-3">
-              {{ form.situacao|bootstrap }}
+              {% bootstrap_field form.situacao %}
             </div>
             <div class="col-lg-3">
-              {{ form.privilegio|bootstrap }}
+              {% bootstrap_field form.privilegio %}
             </div>
             <div class="col-lg-3">
-              {{ form.grupo|bootstrap }}
+              {% bootstrap_field form.grupo %}
             </div>
           </div>
           <div class="col-lg-12">

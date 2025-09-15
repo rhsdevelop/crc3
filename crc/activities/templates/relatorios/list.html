@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% load bootstrap %}
+{% load bootstrap4 %}
 
 {% block corpo %}
 {% if perms.activities.add_relatorios %}
@@ -20,22 +20,22 @@
         <form action="." method="get">
           <div class="row">
             <div class="col-lg-3">
-              {{ form.publicador|bootstrap }}
+              {% bootstrap_field form.publicador %}
             </div>
             <div class="col-lg-3">
-              {{ form.grupo|bootstrap }}
+              {% bootstrap_field form.grupo %}
             </div>
             <div class="col-lg-3">
-              {{ form.tipo|bootstrap }}
+              {% bootstrap_field form.tipo %}
             </div>
             <div class="col-lg-3">
-              {{ form.privilegio|bootstrap }}
+              {% bootstrap_field form.privilegio %}
             </div>
             <div class="col-lg-3">
-              {{ form.mes_inicio|bootstrap }}
+              {% bootstrap_field form.mes_inicio %}
             </div>
             <div class="col-lg-3">
-              {{ form.mes_fim|bootstrap }}
+              {% bootstrap_field form.mes_fim %}
             </div>
           </div>
           <div class="col-lg-12">
