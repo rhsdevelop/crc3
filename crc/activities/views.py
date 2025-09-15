@@ -313,11 +313,11 @@ def list_cartoes(request):
                 zip_pub.write(i)
                 os.remove(i)
             zip_name = grupos.grupo + '.zip'
+            zip_pub.close()
             return_response = HttpResponse(content_type='application/force-download')
             return_response['Content-Disposition'] = 'attachment; filename="%s"' % zip_name
             pub_arq = arquivo.getvalue()
             return_response.write(pub_arq)
-            zip_pub.close()
             arquivo.close()
             return return_response
         else:
