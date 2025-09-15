@@ -2,7 +2,7 @@ import datetime
 import json
 import os
 from io import BytesIO, StringIO
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from register.models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros, TIPO
 from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindCartoesForm
@@ -307,7 +307,7 @@ def list_cartoes(request):
                 except:
                     pass
                 file_list.append(filename)
-            zip_pub = ZipFile(arquivo, mode='w')
+            zip_pub = ZipFile(arquivo, mode='w', compression=ZIP_DEFLATED, allowZip64=True)
             #zip_pub = ZipFile(grupos.grupo + '.zip', mode='w')
             for i in file_list:
                 zip_pub.write(i)
