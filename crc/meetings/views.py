@@ -126,7 +126,7 @@ def list_reunioes(request):
         elif key in ['mes_inicio'] and value:
             filter_search['data__gte'] = value + '-01'
         elif key in ['mes_fim'] and value:
-            filter_search['data__lte'] = value + '-' + str(monthrange(datetime.date.today().year, datetime.date.today().month)[1])
+            filter_search['data__lte'] = value + '-' + str(monthrange(int(value.split('-')[0]), int(value.split('-')[1]))[1])
     list_reunioes = Reunioes.objects.filter(**filter_search).order_by('-data')
     resumo = False
     if 'somente_resumo' in request.GET and request.GET['somente_resumo']:
@@ -169,7 +169,8 @@ def printcard_reunioes(request):
     if 'mes_inicio' in request.GET and request.GET['mes_inicio']:
         meses_intervalo[0] = datetime.datetime.strptime(request.GET['mes_inicio'] + '-01', '%Y-%m-%d')
     if 'mes_fim' in request.GET and request.GET['mes_fim']:
-        meses_intervalo[1] = datetime.datetime.strptime(request.GET['mes_fim'] + '-' + str(monthrange(datetime.date.today().year, datetime.date.today().month)[1]), '%Y-%m-%d')
+        value = request.GET['mes_fim']
+        meses_intervalo[1] = datetime.datetime.strptime(request.GET['mes_fim'] + '-' + str(monthrange(int(value.split('-')[0]), int(value.split('-')[1]))[1]), '%Y-%m-%d')
     arquivo = BytesIO()
     resp = imprime_cartao_resumo(arquivo, meses_intervalo, crc_user.first().cong_id)
     response = HttpResponse(content_type='application/pdf')

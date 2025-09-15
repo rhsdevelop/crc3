@@ -310,8 +310,11 @@ def list_cartoes(request):
             zip_pub = ZipFile(arquivo, mode='w', compression=ZIP_DEFLATED, allowZip64=True)
             #zip_pub = ZipFile(grupos.grupo + '.zip', mode='w')
             for i in file_list:
-                zip_pub.write(i)
-                os.remove(i)
+                try:
+                    zip_pub.write(i)
+                    os.remove(i)
+                except:
+                    pass
             zip_name = grupos.grupo + '.zip'
             zip_pub.close()
             return_response = HttpResponse(content_type='application/force-download')
