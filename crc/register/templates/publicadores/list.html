@@ -76,7 +76,10 @@
             <td>{{ publicadores.get_privilegio_display }}</td>
             <td>{{ publicadores.get_tipo_display }}</td>
             <td>{{ publicadores.grupo }}</td>
-            <td>{% if perms.register.change_publicadores %}<a href="/publicadores/{{ publicadores.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>{% endif %}</td>
+            <td>
+              {% if perms.register.change_publicadores %}<a href="/publicadores/{{ publicadores.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>{% endif %}
+              {% if perms.register.change_publicadores %}<a href="/publicadores/{{ publicadores.id }}/view/" ><button class="btn btn-warning"><span class="fas fa-eye"></span></button></a>{% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>

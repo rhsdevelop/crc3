@@ -97,6 +97,7 @@ class Publicadores(models.Model):
     endereco = models.CharField(db_column='Endereco', max_length=100)
     telefone_fixo = models.CharField(db_column='Telefone_Fixo', max_length=16, blank=True, null=True)
     telefone_celular = models.CharField(db_column='Telefone_Celular', max_length=16, blank=True, null=True)
+    email = models.EmailField(db_column='Email', max_length=254, blank=True, null=True)
     nascimento = models.DateField(db_column='Nascimento', blank=True, null=True)
     batismo = models.DateField(db_column='Batismo', blank=True, null=True)
     esperanca = models.IntegerField(db_column='Esperanca', choices=ESPERANCA)

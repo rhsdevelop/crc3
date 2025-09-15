@@ -364,6 +364,47 @@ def edit_publicadores(request, publicadores_id):
 
 @login_required
 @permission_required('register.view_publicadores')
+def view_publicadores(request, publicadores_id):
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user)
+        if crc_user:
+            publicadores = Publicadores.objects.get(id=publicadores_id, cong_id=crc_user.first().cong_id)
+        else:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+    else:
+        publicadores = Publicadores.objects.get(id=publicadores_id)
+    if request.POST:
+        return redirect('/publicadores/list')
+    data = {}
+    i = publicadores
+    data['nome'] = i.nome
+    data['endereco'] = i.endereco
+    data['telefone_fixo'] = '' if not i.telefone_fixo else i.telefone_fixo
+    data['telefone_celular'] = '' if not i.telefone_celular else i.telefone_celular
+    data['email'] = '' if not i.email else i.email
+    data['nascimento'] = '' if not i.nascimento else i.nascimento.strftime('%d/%m/%Y')
+    data['idade'] = '' if not i.nascimento else datetime.date.today().year - i.nascimento.year
+    data['batismo'] = ''if not i.batismo else i.batismo.strftime('%d/%m/%Y')
+    data['tempo_batismo'] = '' if not i.batismo else datetime.date.today().year - i.batismo.year
+    data['esperanca'] = i.get_esperanca_display()
+    data['privilegio'] = i.get_privilegio_display()
+    data['tipo'] = i.get_tipo_display()
+    data['sexo'] = i.get_sexo_display()
+    data['observacao'] = '' if not i.observacao else i.observacao
+    data['situacao'] = i.get_situacao_display()
+    data['grupo'] = '' if not i.grupo else i.grupo.grupo
+    template = loader.get_template('publicadores/view.html')
+    context = {
+        'title': 'Dados de Publicador Visualizado',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'data': data
+    }
+    return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('register.view_publicadores')
 def list_publicadores(request):
     filter_search = {}
     if request.GET:
@@ -449,25 +490,26 @@ def sheet_publicadores(request):
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
     list_publicadores = Publicadores.objects.filter(**filter_search)
-    fieldnames = ['nome', 'endereco', 'telefone_fixo', 'telefone_celular', 'nascimento', 'idade', 'batismo', 'tempo_batismo', 'esperanca', 'privilegio', 'tipo', 'sexo', 'observacao', 'situacao', 'grupo']
+    fieldnames = ['Nome', 'Endereço', 'Telefone Fixo', 'Telefone Celular', 'Email', 'Nascimento', 'Idade', 'Batismo', 'Tempo Batismo', 'Esperanca', 'Privilégio', 'Tipo', 'Sexo', 'Observação', 'Situação', 'Grupo']
     data = []
     for i in list_publicadores:
         new_pub = {
-            'nome': i.nome,
-            'endereco': i.endereco,
-            'telefone_fixo': '' if not i.telefone_fixo else i.telefone_fixo,
-            'telefone_celular': '' if not i.telefone_celular else i.telefone_celular,
-            'nascimento': '' if not i.nascimento else i.nascimento.strftime('%d/%m/%Y'),
-            'idade': '0' if not i.nascimento else datetime.date.today().year - i.nascimento.year,
-            'batismo': ''if not i.batismo else i.batismo,
-            'tempo_batismo': '0' if not i.batismo else datetime.date.today().year - i.batismo.year,
-            'esperanca': i.get_esperanca_display(),
-            'privilegio': i.get_privilegio_display(),
-            'tipo': i.get_tipo_display(),
-            'sexo': i.get_sexo_display(),
-            'observacao': '' if not i.observacao else i.observacao,
-            'situacao': i.get_situacao_display(),
-            'grupo': '' if not i.grupo else i.grupo.grupo,
+            'Nome': i.nome,
+            'Endereço': i.endereco,
+            'Telefone Fixo': '' if not i.telefone_fixo else i.telefone_fixo,
+            'Telefone Celular': '' if not i.telefone_celular else i.telefone_celular,
+            'Email': '' if not i.email else i.email,
+            'Nascimento': '' if not i.nascimento else i.nascimento.strftime('%d/%m/%Y'),
+            'Idade': '0' if not i.nascimento else datetime.date.today().year - i.nascimento.year,
+            'Batismo': ''if not i.batismo else i.batismo.strftime('%d/%m/%Y'),
+            'Tempo Batismo': '0' if not i.batismo else datetime.date.today().year - i.batismo.year,
+            'Esperanca': i.get_esperanca_display(),
+            'Privilégio': i.get_privilegio_display(),
+            'Tipo': i.get_tipo_display(),
+            'Sexo': i.get_sexo_display(),
+            'Observação': '' if not i.observacao else i.observacao,
+            'Situação': i.get_situacao_display(),
+            'Grupo': '' if not i.grupo else i.grupo.grupo,
         }
         data.append(new_pub)
     io_report = StringIO()

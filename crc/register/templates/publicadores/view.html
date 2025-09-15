@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="container-fluid">
+  <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Informações</h6>
+    </div>
+    <div class="card-body">
+      <form action="." class="form-horizontal" method="post">
+        {% csrf_token %}
+        <div class="row"><div class="col-lg-2"><b>Nome:</b></div> {{ data.nome }}</div>
+        <div class="row"><div class="col-lg-2"><b>Endereço:</b></div> {{data.endereco }}</div>
+        <div class="row"><div class="col-lg-2"><b>Telefone Fixo:</b></div> {{ data.telefone_fixo }}</div>
+        <div class="row"><div class="col-lg-2"><b>Telefone Celular:</b></div> {{ data.telefone_celular }}</div>
+        <div class="row"><div class="col-lg-2"><b>Email:</b></div> {{ data.email }}</div>
+        <div class="row"><div class="col-lg-2"><b>Nascimento:</b></div> {{ data.nascimento }}</div>
+        <div class="row"><div class="col-lg-2"><b>Idade:</b></div> {{ data.idade }}</div>
+        <div class="row"><div class="col-lg-2"><b>Batismo:</b></div> {{ data.batismo }}</div>
+        <div class="row"><div class="col-lg-2"><b>Tempo Batismo:</b></div> {{ data.tempo_batismo }}</div>
+        <div class="row"><div class="col-lg-2"><b>Esperanca:</b></div> {{ data.esperanca }}</div>
+        <div class="row"><div class="col-lg-2"><b>Privilégio:</b></div> {{ data.privilegio }}</div>
+        <div class="row"><div class="col-lg-2"><b>Tipo:</b></div> {{ data.tipo }}</div>
+        <div class="row"><div class="col-lg-2"><b>Sexo:</b></div> {{ data.sexo }}</div>
+        <div class="row"><div class="col-lg-2"><b>Observação:</b></div> {{ data.observacao }}</div>
+        <div class="row"><div class="col-lg-2"><b>Situação:</b></div> {{data.situacao }}</div>
+        <div class="row"><div class="col-lg-2"><b>Grupo:</b></div> {{ data.grupo }}</div>
+        <br>
+        <button class="btn btn-primary" type="submit">Retornar</button>
+      </form>
+    </div>
+  </div>
+</div>
+<br>
+{% endblock %}

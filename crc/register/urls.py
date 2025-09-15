@@ -19,6 +19,7 @@ urlpatterns = [
     path('publicadores/list/', views.list_publicadores, name='list_publicadores'),
     path('publicadores/sheet/', views.sheet_publicadores, name='sheet_publicadores'),
     path('publicadores/<int:publicadores_id>/edit/', views.edit_publicadores, name='edit_publicadores'),
+    path('publicadores/<int:publicadores_id>/view/', views.view_publicadores, name='view_publicadores'),
     path('pioneiros/add/', views.add_pioneiros, name='add_pioneiros'),
     path('pioneiros/list/', views.list_pioneiros, name='list_pioneiros'),
     path('pioneiros/<int:pioneiros_id>/delete/', views.delete_pioneiros, name='delete_pioneiros'),
