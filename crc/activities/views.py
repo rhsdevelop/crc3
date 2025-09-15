@@ -304,9 +304,9 @@ def list_cartoes(request):
                 filename = 'Cartão-%s.pdf' % pub.nome
                 try:
                     resp = imprime_cartao(filename, meses_intervalo, pub.id)
+                    file_list.append(filename)
                 except:
                     pass
-                file_list.append(filename)
             zip_pub = ZipFile(arquivo, mode='w', compression=ZIP_DEFLATED, allowZip64=True)
             #zip_pub = ZipFile(grupos.grupo + '.zip', mode='w')
             for i in file_list:
@@ -317,6 +317,7 @@ def list_cartoes(request):
             return_response['Content-Disposition'] = 'attachment; filename="%s"' % zip_name
             pub_arq = arquivo.getvalue()
             return_response.write(pub_arq)
+            zip_pub.close()
             arquivo.close()
             return return_response
         else:
