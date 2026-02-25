@@ -2,13 +2,13 @@
 {% load bootstrap4 %}
 
 {% block corpo %}
-{% if perms.register.add_publicadores %}
 <div class="col-lg-12">
+  {% if perms.register.add_publicadores %}
   <a href="/publicadores/add/" ><button class="btn btn-info"><span class="fas fa-plus"></span> Adicionar Publicador</button></a>&nbsp;&nbsp;&nbsp;&nbsp;
+  {% endif %}
   <a href="/publicadores/sheet/" ><button class="btn btn-info"><span class="fas fa-print"></span> Imprimir Lista</button></a>
 </div>
 <br>
-{% endif %}
 <div class="card shadow mb-4">
   <!-- Card Header - Accordion -->
   <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
