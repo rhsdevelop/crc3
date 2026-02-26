@@ -27,7 +27,7 @@ def imprime_cartao(arquivo, meses_intervalo, publicador_id, formulario=True, cab
             icanvas.drawString(488 + ct, 162 + qt, 'x')   # Esperança
         icanvas.drawString(40, 650, service_year)
 
-    data = Relatorios.objects.filter(mes__range=meses_intervalo, publicador_id=publicador_id)
+    data = Relatorios.objects.filter(mes__range=meses_intervalo, publicador_id=publicador_id).order_by('mes')
     # inicializa o pdf
     icanvas = None
     first = True
@@ -143,7 +143,7 @@ def imprime_cartao_resumo(arquivo, meses_intervalo, filter_search, formulario=Tr
             icanvas.drawString(488 + ct, 162 + qt, 'x')   # Esperança
         icanvas.drawString(40, 650, service_year)
 
-    tipo_data = Relatorios.objects.filter(**filter_search).values('tipo', 'mes').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos'))
+    tipo_data = Relatorios.objects.filter(**filter_search).values('tipo', 'mes').order_by('mes').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos'))
     # inicializa o pdf
     icanvas = None
     if not tipo_data:
@@ -158,7 +158,7 @@ def imprime_cartao_resumo(arquivo, meses_intervalo, filter_search, formulario=Tr
         del filter_search['tipo__in']
         for tipo_id in range(0, 3):
             filter_search['tipo'] = tipo_id
-            data = Relatorios.objects.filter(**filter_search).values('tipo', 'mes').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos'))
+            data = Relatorios.objects.filter(**filter_search).values('tipo', 'mes').order_by('mes').annotate(membros=Count('id'), horas=Sum('horas'), estudos=Sum('estudos'))
             first = True
             if data:
                 publicador = tipo_list[tipo_id]
