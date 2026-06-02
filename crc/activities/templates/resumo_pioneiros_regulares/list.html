@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <div class="collapse show" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            {% if request.user.is_staff %}
+            <div class="col-lg-3">
+              {% bootstrap_field form.congregacao %}
+            </div>
+            {% endif %}
+            <div class="col-lg-3">
+              {% bootstrap_field form.grupo %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.publicador %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.mes_inicio %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.mes_fim %}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Publicador</th>
+            <th scope="col">Grupo de serviço</th>
+            {% if request.user.is_staff %}
+            <th scope="col">Congregação</th>
+            {% endif %}
+            <th scope="col">Horas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pioneiro in list_pioneiros %}
+          <tr>
+            <th scope="row">{{ pioneiro.nome }}</th>
+            <td>{{ pioneiro.grupo|default_if_none:"" }}</td>
+            {% if request.user.is_staff %}
+            <td>{{ pioneiro.cong|default_if_none:"" }}</td>
+            {% endif %}
+            <td>{{ pioneiro.total_horas }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+<script type="text/javascript">
+  $(document).ready( function() {
+    $('#example').dataTable( {
+      "pageLength": 25
+    });
+  })
+</script>
+{% endblock %}

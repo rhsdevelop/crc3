@@ -6,17 +6,31 @@ from io import BytesIO, StringIO
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from register.models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros, TIPO
-from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindCartoesForm
+from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindResumoPioneirosRegularesForm, FindCartoesForm
 from .helpers import imprime_cartao, imprime_cartao_resumo
 from .models import Relatorios
 
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db.models import Avg, Case, Count, Sum, When
+from django.db.models import Avg, Case, Count, IntegerField, Q, Sum, Value, When
+from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.template import loader
+
+
+def periodo_ano_servico(data=None):
+    data = data or datetime.date.today()
+    ano_servico = data.year if data.month >= 9 else data.year - 1
+    return '%s-09' % ano_servico, '%s-08' % (ano_servico + 1)
+
+
+def primeiro_dia_mes(mes, padrao):
+    try:
+        return datetime.datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        return datetime.datetime.strptime(padrao + '-01', '%Y-%m-%d').date()
 
 
 @login_required
@@ -217,6 +231,57 @@ def list_resumo(request):
         'title': 'Relatórios de Campo - Resumo',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_resumo': list_resumo,
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('activities.view_relatorios')
+def resumo_pioneiros_regulares(request):
+    mes_inicio_padrao, mes_fim_padrao = periodo_ano_servico()
+    mes_inicio = request.GET.get('mes_inicio') or mes_inicio_padrao
+    mes_fim = request.GET.get('mes_fim') or mes_fim_padrao
+    inicio = primeiro_dia_mes(mes_inicio, mes_inicio_padrao)
+    fim = primeiro_dia_mes(mes_fim, mes_fim_padrao)
+
+    form = FindResumoPioneirosRegularesForm(initial={
+        'congregacao': request.GET.get('congregacao'),
+        'grupo': request.GET.get('grupo'),
+        'publicador': request.GET.get('publicador'),
+        'mes_inicio': mes_inicio,
+        'mes_fim': mes_fim,
+    })
+    filter_search = {'tipo': 2, 'situacao': 1}
+    if request.user.is_staff:
+        if request.GET.get('congregacao'):
+            filter_search['cong_id'] = request.GET['congregacao']
+            form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=request.GET['congregacao']).order_by('grupo')
+    else:
+        crc_user = CongUser.objects.filter(user=request.user).first()
+        if not crc_user:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+        filter_search['cong_id'] = crc_user.cong_id
+        form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.cong_id).order_by('grupo')
+
+    if request.GET.get('grupo'):
+        filter_search['grupo_id'] = request.GET['grupo']
+    if request.GET.get('publicador'):
+        filter_search['nome__icontains'] = request.GET['publicador']
+
+    list_pioneiros = Publicadores.objects.filter(**filter_search).select_related('grupo', 'cong').annotate(
+        total_horas=Coalesce(
+            Sum('relatorios__horas', filter=Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)),
+            Value(0),
+            output_field=IntegerField(),
+        )
+    ).order_by('nome')
+    template = loader.get_template('resumo_pioneiros_regulares/list.html')
+    context = {
+        'title': 'Resumo de Pioneiros Regulares',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'list_pioneiros': list_pioneiros,
         'form': form,
     }
     return HttpResponse(template.render(context, request))

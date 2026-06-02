@@ -1,6 +1,6 @@
 from django import forms
 from .models import Relatorios
-from register.models import Grupos, Publicadores, PRIVILEGIO, TIPO
+from register.models import Cong, Grupos, Publicadores, PRIVILEGIO, TIPO
 
 
 class AddRelatoriosForm(forms.ModelForm):
@@ -53,6 +53,26 @@ class FindResumoForm(forms.Form):
     )
     mes_fim = forms.DateField(
         label='Mês final',
+        widget=forms.widgets.TextInput(
+            attrs={'type': "month"}
+        ),
+        required=False
+    )
+
+
+class FindResumoPioneirosRegularesForm(forms.Form):
+    congregacao = forms.ModelChoiceField(queryset=Cong.objects.all(), label='Congregação', required=False)
+    grupo = forms.ModelChoiceField(queryset=Grupos.objects.all(), label='Grupo de serviço', required=False)
+    publicador = forms.CharField(label='Publicador', required=False)
+    mes_inicio = forms.DateField(
+        label='Período inicial',
+        widget=forms.widgets.TextInput(
+            attrs={'type': "month"}
+        ),
+        required=False
+    )
+    mes_fim = forms.DateField(
+        label='Período final',
         widget=forms.widgets.TextInput(
             attrs={'type': "month"}
         ),
