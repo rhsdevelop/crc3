@@ -286,14 +286,38 @@ def resumo_pioneiros_regulares(request):
         ),
         saldo_horas=Value(600) - F('total_horas'),
     ).order_by('nome')
+    if request.GET.get('export') == 'csv':
+        return sheet_resumo_pioneiros_regulares(list_pioneiros)
+    spreadsheet_query = request.GET.copy()
+    spreadsheet_query['export'] = 'csv'
     template = loader.get_template('resumo_pioneiros_regulares/list.html')
     context = {
         'title': 'Resumo de Pioneiros Regulares',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_pioneiros': list_pioneiros,
         'form': form,
+        'spreadsheet_url': '?%s' % spreadsheet_query.urlencode(),
     }
     return HttpResponse(template.render(context, request))
+
+
+def sheet_resumo_pioneiros_regulares(list_pioneiros):
+    io_report = StringIO()
+    writerio = csv.writer(io_report, delimiter=';')
+    writerio.writerow(['Publicador', 'Grupo de serviço', 'Congregação', 'Horas', 'Meses', 'Média', 'Saldo'])
+    for pioneiro in list_pioneiros:
+        writerio.writerow([
+            pioneiro.nome,
+            '' if not pioneiro.grupo else pioneiro.grupo,
+            '' if not pioneiro.cong else pioneiro.cong,
+            pioneiro.total_horas,
+            pioneiro.total_meses,
+            pioneiro.media_horas,
+            pioneiro.saldo_horas,
+        ])
+    response = HttpResponse(io_report.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=resumo-pioneiros-regulares.csv'
+    return response
 
 
 @login_required

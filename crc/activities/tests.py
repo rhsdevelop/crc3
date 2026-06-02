@@ -97,3 +97,30 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.client.login(username='usuario', password='senha')
         response = self.client.get(self.url, {'grupo': self.grupo_b.id})
         self.assertNotContains(response, 'Pioneiro B')
+
+    def test_exportacao_csv_respeita_filtros_e_inclui_metricas(self):
+        self.client.login(username='staff', password='senha')
+        response = self.client.get(self.url, {
+            'congregacao': self.cong_b.id,
+            'mes_inicio': '2025-09',
+            'mes_fim': '2026-08',
+            'export': 'csv',
+        })
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertEqual(response['Content-Disposition'], 'attachment; filename=resumo-pioneiros-regulares.csv')
+        content = response.content.decode('utf-8')
+        self.assertIn('Publicador;Grupo de serviço;Congregação;Horas;Meses;Média;Saldo', content)
+        self.assertIn('Pioneiro B;Grupo B;Congregação B (2);620;1;620;-20', content)
+        self.assertNotIn('Pioneiro A', content)
+
+    def test_exportacao_csv_de_usuario_comum_nao_vaza_outra_congregacao(self):
+        self.client.login(username='usuario', password='senha')
+        response = self.client.get(self.url, {
+            'congregacao': self.cong_b.id,
+            'mes_inicio': '2025-09',
+            'mes_fim': '2026-08',
+            'export': 'csv',
+        })
+        content = response.content.decode('utf-8')
+        self.assertIn('Pioneiro A;Grupo A;Congregação A (1);27;2;14;573', content)
+        self.assertNotIn('Pioneiro B', content)
