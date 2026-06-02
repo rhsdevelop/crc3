@@ -1,3 +1,4 @@
+import csv
 import datetime
 import json
 import os
@@ -92,14 +93,11 @@ def add_relatorios(request):
 def list_relatorios(request):
     filter_search = {}
     form = FindRelatoriosForm()
-    if request.GET:
+    filter_fields = ['publicador', 'grupo', 'tipo', 'privilegio', 'mes_inicio', 'mes_fim']
+    if any(key in request.GET for key in filter_fields):
         request_get = request.GET.copy()
-        form.fields['mes_inicio'].initial = request_get['mes_inicio']
-        form.fields['mes_fim'].initial = request_get['mes_fim']
-        form.fields['publicador'].initial = request_get['publicador']
-        form.fields['grupo'].initial = request_get['grupo']
-        form.fields['tipo'].initial = request_get['tipo']
-        form.fields['privilegio'].initial = request_get['privilegio']
+        for field in filter_fields:
+            form.fields[field].initial = request_get.get(field)
     else:
         form.fields['mes_inicio'].initial = str(datetime.date.today().replace(day=1) - datetime.timedelta(days=1))[0:7]
         form.fields['mes_fim'].initial = str(datetime.date.today().replace(day=1) - datetime.timedelta(days=1))[0:7]
@@ -125,15 +123,39 @@ def list_relatorios(request):
             filter_search['mes__gte'] = value + '-01'
         elif key in ['mes_fim'] and value:
             filter_search['mes__lte'] = value + '-01'
-    list_relatorios = Relatorios.objects.filter(**filter_search)
+    list_relatorios = Relatorios.objects.filter(**filter_search).select_related('publicador')
+    if request.GET.get('export') == 'csv':
+        return sheet_relatorios(list_relatorios)
+    spreadsheet_query = request.GET.copy()
+    spreadsheet_query['export'] = 'csv'
     template = loader.get_template('relatorios/list.html')
     context = {
         'title': 'Relatórios de Campo',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_relatorios': list_relatorios,
         'form': form,
+        'spreadsheet_url': '?%s' % spreadsheet_query.urlencode(),
     }
     return HttpResponse(template.render(context, request))
+
+
+def sheet_relatorios(list_relatorios):
+    io_report = StringIO()
+    writerio = csv.writer(io_report, delimiter=';')
+    writerio.writerow(['Publicador', 'Mês', 'Horas', 'Estudos', 'Observação', 'Tipo', 'Atividade local?'])
+    for relatorio in list_relatorios:
+        writerio.writerow([
+            relatorio.publicador,
+            relatorio.mes.strftime('%m-%Y'),
+            relatorio.horas,
+            relatorio.estudos,
+            '' if not relatorio.observacao else relatorio.observacao,
+            relatorio.get_tipo_display(),
+            'Sim' if relatorio.atv_local else 'Não',
+        ])
+    response = HttpResponse(io_report.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=relatorios.csv'
+    return response
 
 
 @login_required

@@ -60,6 +60,7 @@
             <th scope="col">Estudos</th>
             <th scope="col">Observação</th>
             <th scope="col">Tipo</th>
+            <th scope="col">Atividade local?</th>
           </tr>
         </thead>
         <tbody>
@@ -71,6 +72,7 @@
             <td>{{ relatorios.estudos }}</td>
             <td>{{ relatorios.observacao|default_if_none:"" }}</td>
             <td>{{ relatorios.get_tipo_display }}</td>
+            <td>{% if relatorios.atv_local %}Sim{% else %}Não{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
