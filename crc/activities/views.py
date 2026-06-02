@@ -13,8 +13,8 @@ from .models import Relatorios
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db.models import Avg, Case, Count, IntegerField, Q, Sum, Value, When
-from django.db.models.functions import Coalesce
+from django.db.models import Avg, Case, Count, F, IntegerField, Q, Sum, Value, When
+from django.db.models.functions import Cast, Coalesce, Round
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.template import loader
@@ -270,12 +270,21 @@ def resumo_pioneiros_regulares(request):
     if request.GET.get('publicador'):
         filter_search['nome__icontains'] = request.GET['publicador']
 
+    relatorios_periodo = Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)
     list_pioneiros = Publicadores.objects.filter(**filter_search).select_related('grupo', 'cong').annotate(
         total_horas=Coalesce(
-            Sum('relatorios__horas', filter=Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)),
+            Sum('relatorios__horas', filter=relatorios_periodo),
             Value(0),
             output_field=IntegerField(),
-        )
+        ),
+        total_meses=Count('relatorios__mes', filter=relatorios_periodo, distinct=True),
+    ).annotate(
+        media_horas=Case(
+            When(total_meses=0, then=Value(0)),
+            default=Cast(Round(F('total_horas') * 1.0 / F('total_meses')), IntegerField()),
+            output_field=IntegerField(),
+        ),
+        saldo_horas=Value(600) - F('total_horas'),
     ).order_by('nome')
     template = loader.get_template('resumo_pioneiros_regulares/list.html')
     context = {

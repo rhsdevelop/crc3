@@ -25,8 +25,10 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.criar_publicador('Pioneiro Inativo', self.cong_a, self.grupo_a, situacao=0)
         self.criar_publicador('Publicador Comum', self.cong_a, self.grupo_a, tipo=0)
         self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 10)
+        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 5)
+        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 10, 1), 12)
         self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 8, 1), 99)
-        self.criar_relatorio(self.pioneiro_b, datetime.date(2025, 9, 1), 20)
+        self.criar_relatorio(self.pioneiro_b, datetime.date(2025, 9, 1), 620)
         self.url = reverse('activities:resumo_pioneiros_regulares')
 
     def criar_publicador(self, nome, congregacao, grupo, tipo=2, situacao=1):
@@ -68,8 +70,12 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertNotContains(response, 'Pioneiro Inativo')
         self.assertNotContains(response, 'Publicador Comum')
         self.assertNotContains(response, 'name="congregacao"')
-        self.assertContains(response, '<td>10</td>', html=True)
-        self.assertContains(response, '<td>0</td>', html=True)
+        self.assertContains(response, '<td>27</td>', html=True)
+        self.assertContains(response, '<td>2</td>', html=True)
+        self.assertContains(response, '<td>14</td>', html=True)
+        self.assertContains(response, '<td>573</td>', html=True)
+        self.assertContains(response, '<td>0</td>', count=3, html=True)
+        self.assertContains(response, '<td>600</td>', html=True)
 
     def test_staff_filtra_congregacao_grupo_publicador_e_periodo(self):
         self.client.login(username='staff', password='senha')
@@ -82,7 +88,9 @@ class ResumoPioneirosRegularesTests(TestCase):
         })
         self.assertContains(response, 'name="congregacao"')
         self.assertContains(response, 'Pioneiro B')
-        self.assertContains(response, '<td>20</td>', html=True)
+        self.assertContains(response, '<td>620</td>', html=True)
+        self.assertContains(response, '<td>1</td>', html=True)
+        self.assertContains(response, '<td>-20</td>', html=True)
         self.assertNotContains(response, 'Pioneiro A')
 
     def test_usuario_comum_nao_vaza_dados_ao_informar_grupo_de_outra_congregacao(self):
