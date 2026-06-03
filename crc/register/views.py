@@ -1,5 +1,6 @@
 import csv
 import datetime
+import json
 from io import StringIO
 
 from django import forms
@@ -20,15 +21,87 @@ from .schedule import atualiza_pioneiros
 # Create your views here.
 
 
+def add_months(data, meses):
+    mes = data.month - 1 + meses
+    ano = data.year + mes // 12
+    mes = mes % 12 + 1
+    return datetime.date(ano, mes, 1)
+
+
+def ultimos_seis_meses_encerrados(data=None):
+    data = data or datetime.date.today()
+    ultimo_mes = data.replace(day=1) - datetime.timedelta(days=1)
+    fim = ultimo_mes.replace(day=1)
+    inicio = add_months(fim, -5)
+    return [add_months(inicio, i) for i in range(6)]
+
+
+def dados_dashboard_publicadores(user, data=None):
+    from activities.models import Relatorios
+
+    meses = ultimos_seis_meses_encerrados(data)
+    filter_search = {'situacao': 1}
+    if not user.is_staff:
+        crc_user = CongUser.objects.filter(user=user).first()
+        if not crc_user:
+            return None
+        filter_search['cong_id'] = crc_user.cong_id
+
+    publicadores = Publicadores.objects.filter(**filter_search).values('id', 'tipo')
+    publicadores_por_id = {publicador['id']: publicador for publicador in publicadores}
+    publicadores_ids = set(publicadores_por_id.keys())
+    relatorios = Relatorios.objects.filter(
+        publicador_id__in=publicadores_ids,
+        mes__gte=meses[0],
+        mes__lte=meses[-1],
+    ).values('publicador_id', 'mes', 'tipo').distinct()
+
+    relatorios_por_publicador = {}
+    auxiliares_ids = set()
+    for relatorio in relatorios:
+        relatorios_por_publicador.setdefault(relatorio['publicador_id'], set()).add(relatorio['mes'])
+        if relatorio['tipo'] == 1:
+            auxiliares_ids.add(relatorio['publicador_id'])
+
+    regulares_ids = {id for id, publicador in publicadores_por_id.items() if publicador['tipo'] == 2}
+    auxiliares_ids = auxiliares_ids - regulares_ids
+    restantes_ids = publicadores_ids - regulares_ids - auxiliares_ids
+    irregulares_ids = {
+        publicador_id for publicador_id in restantes_ids
+        if len(relatorios_por_publicador.get(publicador_id, set())) < len(meses)
+    }
+    publicadores_comuns_ids = restantes_ids - irregulares_ids
+
+    return {
+        'labels': ['Pioneiros Regulares', 'Pioneiros Auxiliares', 'Publicadores', 'Irregulares'],
+        'values': [len(regulares_ids), len(auxiliares_ids), len(publicadores_comuns_ids), len(irregulares_ids)],
+        'periodo': '%s a %s' % (meses[0].strftime('%m/%Y'), meses[-1].strftime('%m/%Y')),
+    }
+
+
 @login_required
 def index(request):
     # Atualiza pioneiros
     if datetime.datetime.now().hour in [8, 12, 16, 20]:
         atualiza_pioneiros()
+    dashboard = dados_dashboard_publicadores(request.user)
+    if dashboard is None:
+        messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+        meses = ultimos_seis_meses_encerrados()
+        dashboard = {
+            'labels': ['Pioneiros Regulares', 'Pioneiros Auxiliares', 'Publicadores', 'Irregulares'],
+            'values': [0, 0, 0, 0],
+            'periodo': '%s a %s' % (meses[0].strftime('%m/%Y'), meses[-1].strftime('%m/%Y')),
+        }
     template = loader.get_template('index.html')
     context = {
         'title': 'CRC - Controle de Registros de Congregação - V.3.0',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'dashboard_labels': dashboard['labels'],
+        'dashboard_values': dashboard['values'],
+        'dashboard_labels_json': json.dumps(dashboard['labels']),
+        'dashboard_values_json': json.dumps(dashboard['values']),
+        'dashboard_periodo': dashboard['periodo'],
     }
     return HttpResponse(template.render(context, request))
 

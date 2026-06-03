@@ -18,5 +18,69 @@
         </div>
 
     </div>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Resumo dos últimos 6 meses</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-center small mb-3">{{ dashboard_periodo }}</p>
+                <div class="chart-pie pt-4 pb-2">
+                    <canvas id="dashboardPublicadoresPieChart"></canvas>
+                </div>
+                <div class="mt-4 text-center small">
+                    {% for label in dashboard_labels %}
+                    <span class="mr-3">
+                        <i class="fas fa-circle dashboard-chart-color-{{ forloop.counter0 }}"></i> {{ label }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+{% block js %}
+<style>
+  .dashboard-chart-color-0 { color: #4e73df; }
+  .dashboard-chart-color-1 { color: #1cc88a; }
+  .dashboard-chart-color-2 { color: #36b9cc; }
+  .dashboard-chart-color-3 { color: #f6c23e; }
+</style>
+<script type="text/javascript">
+  $(document).ready(function() {
+    Chart.defaults.global.defaultFontFamily = 'Nunito', '-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif';
+    Chart.defaults.global.defaultFontColor = '#858796';
+
+    var ctx = document.getElementById("dashboardPublicadoresPieChart");
+    new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: {{ dashboard_labels_json|safe }},
+        datasets: [{
+          data: {{ dashboard_values_json|safe }},
+          backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'],
+          hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf', '#f4b619'],
+          hoverBorderColor: "rgba(234, 236, 244, 1)",
+        }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        tooltips: {
+          backgroundColor: "rgb(255,255,255)",
+          bodyFontColor: "#858796",
+          borderColor: '#dddfeb',
+          borderWidth: 1,
+          xPadding: 15,
+          yPadding: 15,
+          displayColors: true,
+          caretPadding: 10,
+        },
+        legend: {
+          display: false
+        },
+      },
+    });
+  });
+</script>
 {% endblock %}
