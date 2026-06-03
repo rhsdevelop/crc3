@@ -89,12 +89,13 @@ class DashboardTests(TestCase):
         auxiliar = self.criar_publicador('Auxiliar', self.cong_a)
         publicador = self.criar_publicador('Publicador', self.cong_a)
         irregular = self.criar_publicador('Irregular', self.cong_a)
+        sem_relatorio = self.criar_publicador('Sem Relatório', self.cong_a)
         outra_cong = self.criar_publicador('Outra Congregação', self.cong_b)
         inativo = self.criar_publicador('Inativo', self.cong_a, situacao=0)
         self.criar_relatorios_todos_meses(regular, tipo=1)
         self.criar_relatorio(auxiliar, self.meses[0], tipo=1)
         self.criar_relatorios_todos_meses(publicador)
-        self.criar_relatorio(irregular, self.meses[0])
+        self.criar_relatorio(irregular, self.meses[0], tipo=3)
         self.criar_relatorios_todos_meses(outra_cong)
         self.criar_relatorios_todos_meses(inativo)
         self.client.login(username='staff_dashboard', password='senha')
@@ -102,7 +103,7 @@ class DashboardTests(TestCase):
             response = self.client.get(self.url)
         self.assertContains(response, 'Resumo dos últimos 6 meses')
         self.assertContains(response, '12/2025 a 05/2026')
-        self.assertEqual(response.context['dashboard_values'], [1, 1, 2, 1])
+        self.assertEqual(response.context['dashboard_values'], [1, 1, 3, 1])
 
     def test_usuario_comum_ve_apenas_sua_congregacao(self):
         publicador_a = self.criar_publicador('Publicador A', self.cong_a)

@@ -56,20 +56,18 @@ def dados_dashboard_publicadores(user, data=None):
         mes__lte=meses[-1],
     ).values('publicador_id', 'mes', 'tipo').distinct()
 
-    relatorios_por_publicador = {}
     auxiliares_ids = set()
+    irregulares_ids = set()
     for relatorio in relatorios:
-        relatorios_por_publicador.setdefault(relatorio['publicador_id'], set()).add(relatorio['mes'])
         if relatorio['tipo'] == 1:
             auxiliares_ids.add(relatorio['publicador_id'])
+        elif relatorio['tipo'] == 3:
+            irregulares_ids.add(relatorio['publicador_id'])
 
     regulares_ids = {id for id, publicador in publicadores_por_id.items() if publicador['tipo'] == 2}
     auxiliares_ids = auxiliares_ids - regulares_ids
+    irregulares_ids = irregulares_ids - regulares_ids - auxiliares_ids
     restantes_ids = publicadores_ids - regulares_ids - auxiliares_ids
-    irregulares_ids = {
-        publicador_id for publicador_id in restantes_ids
-        if len(relatorios_por_publicador.get(publicador_id, set())) < len(meses)
-    }
     publicadores_comuns_ids = restantes_ids - irregulares_ids
 
     return {
