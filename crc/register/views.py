@@ -180,8 +180,8 @@ def list_conguser(request):
             return redirect('/')
     for key, value in request.GET.items():
         if key in ['cong', 'user'] and value:
-            filter_search['%s__icontains' % key] = value
-    list_conguser = CongUser.objects.filter(**filter_search)
+            filter_search[key] = value
+    list_conguser = CongUser.objects.filter(**filter_search).select_related('cong', 'user', 'create_user')
     template = loader.get_template('conguser/list.html')
     context = {
         'title': 'Relação de Usuários Cadastrados',

@@ -45,7 +45,7 @@
             <th scope="col">Congregação</th>
             <th scope="col">Usuário</th>
             <th scope="col">Vinculado por</th>
-            <th scope="col">Data de criação</th>
+            <th scope="col">Último acesso</th>
             <th scope="col">Ações</th>
           </tr>
         </thead>
@@ -55,7 +55,7 @@
             <th scope="row">{{ conguser.cong }}</th>
             <td>{{ conguser.user }}</td>
             <td>{{ conguser.create_user }}</td>
-            <td>{{ conguser.created }}</td>
+            <td>{{ conguser.user.last_login|default_if_none:"" }}</td>
             <td>{% if perms.register.change_conguser %}<a href="/conguser/{{ conguser.id }}/edit/" ><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>{% endif %}</td>
           </tr>
           {% endfor %}
