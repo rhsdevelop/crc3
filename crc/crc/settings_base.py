@@ -15,6 +15,8 @@ def load_env_file(path):
 
     for line in path.read_text().splitlines():
         line = line.strip()
+        if line.startswith('export '):
+            line = line.removeprefix('export ').strip()
         if not line or line.startswith('#') or '=' not in line:
             continue
 
@@ -25,6 +27,8 @@ def load_env_file(path):
 load_env_file(BASE_DIR.parent / '.env')
 load_env_file(BASE_DIR / '.env')
 load_env_file(Path.home() / '.env')
+load_env_file(Path('/home/rhsdoctors/crc3/.env'))
+load_env_file(Path('/home/rhsdoctors/.env'))
 
 SECRET_KEY = os.environ.get(
     'CRC_SECRET_KEY',
