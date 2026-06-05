@@ -26,13 +26,21 @@ CRC_SECRET_KEY=sua-secret-key-de-producao
 ```
 
 No PythonAnywhere, se preferir não depender de variáveis do painel/shell,
-crie um arquivo não versionado em `/home/rhsdoctors/crc3/.env`:
+crie um arquivo não versionado em `/home/rhsdoctors/crc3/.env` ou
+`/home/rhsdoctors/.env`:
 
 ```bash
 CRC_ENV=production
 CRC_DJANGO_SETTINGS_MODULE=crc.settings_pa
 CRC_DB_PASSWORD=sua-senha-do-mysql
 CRC_SECRET_KEY=sua-secret-key-de-producao
+```
+
+Para gerar uma `SECRET_KEY` nova no PythonAnywhere:
+
+```bash
+cd /home/rhsdoctors/crc3
+venv/bin/python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 No arquivo WSGI do PythonAnywhere, aponte explicitamente para produção antes

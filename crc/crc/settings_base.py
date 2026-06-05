@@ -24,6 +24,7 @@ def load_env_file(path):
 
 load_env_file(BASE_DIR.parent / '.env')
 load_env_file(BASE_DIR / '.env')
+load_env_file(Path.home() / '.env')
 
 SECRET_KEY = os.environ.get(
     'CRC_SECRET_KEY',
