@@ -25,6 +25,16 @@ CRC_DB_PASSWORD=sua-senha-do-mysql
 CRC_SECRET_KEY=sua-secret-key-de-producao
 ```
 
+No PythonAnywhere, se preferir não depender de variáveis do painel/shell,
+crie um arquivo não versionado em `/home/rhsdoctors/crc3/.env`:
+
+```bash
+CRC_ENV=production
+CRC_DJANGO_SETTINGS_MODULE=crc.settings_pa
+CRC_DB_PASSWORD=sua-senha-do-mysql
+CRC_SECRET_KEY=sua-secret-key-de-producao
+```
+
 No arquivo WSGI do PythonAnywhere, aponte explicitamente para produção antes
 de carregar a aplicação:
 
@@ -55,6 +65,12 @@ O resultado em produção deve ser:
 ```text
 False
 django.db.backends.mysql
+```
+
+Se o site mostrar "Unhandled Exception", confira o erro real:
+
+```bash
+tail -100 /var/log/rhsdoctors.pythonanywhere.com.error.log
 ```
 
 Variáveis opcionais, caso precise sobrescrever os valores padrão:
