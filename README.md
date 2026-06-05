@@ -12,29 +12,8 @@ uv run --python .venv/bin/python python crc/manage.py runserver localhost:8000
 
 ## Produção no PythonAnywhere
 
-O `wsgi.py` usa `crc.settings_pa` por padrão. Esse settings usa MySQL e lê
-as credenciais por variáveis de ambiente, evitando editar arquivos no
-PythonAnywhere.
-
-Variáveis recomendadas:
-
-```bash
-CRC_ENV=production
-CRC_DJANGO_SETTINGS_MODULE=crc.settings_pa
-CRC_DB_PASSWORD=sua-senha-do-mysql
-CRC_SECRET_KEY=sua-secret-key-de-producao
-```
-
-No PythonAnywhere, se preferir não depender de variáveis do painel/shell,
-crie um arquivo não versionado em `/home/rhsdoctors/crc3/.env` ou
-`/home/rhsdoctors/.env`:
-
-```bash
-CRC_ENV=production
-CRC_DJANGO_SETTINGS_MODULE=crc.settings_pa
-CRC_DB_PASSWORD=sua-senha-do-mysql
-CRC_SECRET_KEY=sua-secret-key-de-producao
-```
+O projeto usa um único `settings.py`. Ele detecta o PythonAnywhere e troca
+automaticamente para MySQL.
 
 Para gerar uma `SECRET_KEY` nova no PythonAnywhere:
 
@@ -55,7 +34,9 @@ if path not in sys.path:
     sys.path.insert(0, path)
 
 os.environ['CRC_ENV'] = 'production'
-os.environ['DJANGO_SETTINGS_MODULE'] = 'crc.settings_pa'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'crc.settings'
+os.environ['CRC_SECRET_KEY'] = 'sua-secret-key-de-producao'
+os.environ['CRC_DB_PASSWORD'] = 'sua-senha-do-mysql'
 
 from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
