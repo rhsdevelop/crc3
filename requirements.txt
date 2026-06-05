@@ -1,10 +1,11 @@
 asgiref==3.8.1
-backports.zoneinfo==0.2.1
+backports.zoneinfo==0.2.1; python_version < '3.9'
 beautifulsoup4==4.13.5
 chardet==5.2.0
 charset-normalizer==3.4.3
 Django==4.0
 django-bootstrap4==24.1
+mysqlclient==2.2.7; platform_system != 'Darwin'
 pillow==10.4.0
 reportlab==4.2.0
 soupsieve==2.7
