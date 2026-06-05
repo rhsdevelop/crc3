@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from activities.models import Relatorios
-from .models import Cong, CongUser, Publicadores
+from .models import Cong, CongUser, Pioneiros, Publicadores
 
 
 class CongUserListTests(TestCase):
@@ -114,3 +114,69 @@ class DashboardTests(TestCase):
         with patch('register.views.ultimos_seis_meses_encerrados', return_value=self.meses):
             response = self.client.get(self.url)
         self.assertEqual(response.context['dashboard_values'], [0, 0, 1, 0])
+
+
+class PioneirosReturnUrlTests(TestCase):
+    def setUp(self):
+        self.cong = Cong.objects.create(nome='Congregação', numero=1)
+        self.user = User.objects.create_superuser(username='staff_pioneiros', password='senha')
+        self.publicador = Publicadores.objects.create(
+            nome='João',
+            endereco='Endereço',
+            esperanca=0,
+            privilegio=0,
+            tipo=0,
+            sexo=0,
+            situacao=1,
+            classe='0',
+            cong=self.cong,
+        )
+        self.pioneiro = Pioneiros.objects.create(
+            publicador=self.publicador,
+            mes=datetime.date(2026, 5, 1),
+            observacao='Teste',
+            create_user=self.user,
+            assign_user=self.user,
+        )
+        self.client.login(username='staff_pioneiros', password='senha')
+
+    def test_listagem_envia_url_atual_como_next_nos_links(self):
+        response = self.client.get(reverse('register:list_pioneiros'), {
+            'publicador': self.publicador.id,
+            'mes': '2026-05',
+            'foo': 'bar',
+        })
+
+        next_url = '/pioneiros/list/%%3Fpublicador%%3D%s%%26mes%%3D2026-05%%26foo%%3Dbar' % self.publicador.id
+        self.assertContains(response, '/pioneiros/add/?next=%s' % next_url)
+        self.assertContains(response, '/pioneiros/%s/delete/?next=%s' % (self.pioneiro.id, next_url))
+
+    def test_add_pioneiro_redireciona_para_next_interno_com_filtros(self):
+        next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
+        response = self.client.post(reverse('register:add_pioneiros'), {
+            'publicador': self.publicador.id,
+            'mes': '2026-06',
+            'observacao': 'Novo',
+            'next': next_url,
+        })
+
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+
+    def test_delete_pioneiro_redireciona_para_next_interno_com_filtros(self):
+        next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
+        response = self.client.get(
+            reverse('register:delete_pioneiros', args=[self.pioneiro.id]),
+            {'next': next_url},
+        )
+
+        self.assertRedirects(response, next_url, fetch_redirect_response=False)
+
+    def test_next_externo_e_ignorado(self):
+        response = self.client.post(reverse('register:add_pioneiros'), {
+            'publicador': self.publicador.id,
+            'mes': '2026-06',
+            'observacao': 'Novo',
+            'next': 'https://example.com/pioneiros/list/',
+        })
+
+        self.assertRedirects(response, '/pioneiros/list/', fetch_redirect_response=False)

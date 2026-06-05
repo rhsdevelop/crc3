@@ -8,6 +8,7 @@
     <form action="." class="form-horizontal" method="post">
       <div class="row">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
         <div class="col-lg-6">
           {% bootstrap_form form %}
         </div>

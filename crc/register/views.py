@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User
 from django.http import Http404, HttpResponse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.shortcuts import redirect, render
 from django.template import loader
 
@@ -19,6 +20,17 @@ from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
 from .schedule import atualiza_pioneiros
 
 # Create your views here.
+
+
+def get_pioneiros_return_url(request):
+    next_url = request.POST.get('next') or request.GET.get('next')
+    if next_url and url_has_allowed_host_and_scheme(
+        url=next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return next_url
+    return '/pioneiros/list/'
 
 
 def add_months(data, meses):
@@ -530,7 +542,7 @@ def add_pioneiros(request):
         Pioneiros.objects.create(**new_item)
         messages.success(request, 'Registro adicionado com sucesso.')
         messages.warning(request, 'Se você já digitou o relatório do publicador, favor atualize os dados.')
-        return redirect('/pioneiros/list')
+        return redirect(get_pioneiros_return_url(request))
     form = AddPioneirosForm()
     form.fields['mes'].initial = str(datetime.date.today().replace(day=1))[0:7]
     if not request.user.is_staff:
@@ -607,7 +619,7 @@ def delete_pioneiros(request, pioneiros_id):
         pioneiros = Pioneiros.objects.get(id=pioneiros_id)
     pioneiros.delete()
     messages.success(request, 'Registro removido com sucesso.')
-    return redirect('/pioneiros/list/')
+    return redirect(get_pioneiros_return_url(request))
 
 
 @login_required
@@ -644,6 +656,7 @@ def list_pioneiros(request):
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_pioneiros': list_pioneiros,
         'form': form,
+        'current_url': request.get_full_path(),
     }
     return HttpResponse(template.render(context, request))
 
