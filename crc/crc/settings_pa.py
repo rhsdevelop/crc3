@@ -3,8 +3,34 @@ Production settings for PythonAnywhere.
 """
 
 import os
+from pathlib import Path
 
 from .settings_base import *
+
+
+def load_env_file(path):
+    if not path.exists():
+        return
+
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line.startswith('export '):
+            line = line.removeprefix('export ').strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+for env_path in [
+    BASE_DIR.parent / '.env',
+    BASE_DIR / '.env',
+    Path.home() / '.env',
+    Path('/home/rhsdoctors/crc3/.env'),
+    Path('/home/rhsdoctors/.env'),
+]:
+    load_env_file(env_path)
 
 
 def env(name, default=None):
