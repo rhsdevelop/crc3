@@ -557,6 +557,7 @@ def add_pioneiros(request):
         'title': 'Incluir Petição de Pioneiro Auxiliar',
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'form': form,
+        'next': get_pioneiros_return_url(request),
     }
     return HttpResponse(template.render(context, request))
 

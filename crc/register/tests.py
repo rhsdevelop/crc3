@@ -151,6 +151,12 @@ class PioneirosReturnUrlTests(TestCase):
         self.assertContains(response, '/pioneiros/add/?next=%s' % next_url)
         self.assertContains(response, '/pioneiros/%s/delete/?next=%s' % (self.pioneiro.id, next_url))
 
+    def test_tela_de_add_mantem_next_no_formulario(self):
+        next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
+        response = self.client.get(reverse('register:add_pioneiros'), {'next': next_url})
+
+        self.assertContains(response, '<input type="hidden" name="next" value="%s">' % next_url, html=True)
+
     def test_add_pioneiro_redireciona_para_next_interno_com_filtros(self):
         next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
         response = self.client.post(reverse('register:add_pioneiros'), {
