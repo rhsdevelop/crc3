@@ -115,7 +115,9 @@
                 <div id="collapseReu" class="collapse" aria-labelledby="headingReu" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Registros armazenados:</h6>
+                        {% if perms.meetings.add_reunioes %}
                         <a class="collapse-item" href="/meetings/reunioes/add/">Preencher reuniões</a>
+                        {% endif %}
                         <a class="collapse-item" href="/meetings/reunioes/list/">Demonstrativos e Cartões</a>
                     </div>
                 </div>
