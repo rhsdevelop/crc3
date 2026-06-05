@@ -43,6 +43,20 @@ from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
 ```
 
+Para conferir no Bash do PythonAnywhere qual banco o Django está lendo:
+
+```bash
+cd /home/rhsdoctors/crc3/crc
+python manage.py shell -c "from django.conf import settings; print(settings.DEBUG); print(settings.DATABASES['default']['ENGINE'])"
+```
+
+O resultado em produção deve ser:
+
+```text
+False
+django.db.backends.mysql
+```
+
 Variáveis opcionais, caso precise sobrescrever os valores padrão:
 
 ```bash

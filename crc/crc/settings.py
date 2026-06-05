@@ -1,13 +1,21 @@
 """
-Development settings for the CRC project.
+Environment selector for the CRC project.
 """
 
 import os
 
-if os.environ.get('CRC_ENV') == 'production':
+from .settings_base import BASE_DIR
+
+
+IS_PYTHONANYWHERE = (
+    bool(os.environ.get('PYTHONANYWHERE_DOMAIN'))
+    or str(BASE_DIR).startswith('/home/rhsdoctors/')
+)
+IS_PRODUCTION = os.environ.get('CRC_ENV') == 'production' or IS_PYTHONANYWHERE
+
+if IS_PRODUCTION:
     from .settings_pa import *
 else:
-    from .settings_base import BASE_DIR
     from .settings_base import *
 
     DEBUG = True
