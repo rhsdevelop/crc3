@@ -19,9 +19,13 @@ DEBUG = False
 SECRET_KEY = env('CRC_SECRET_KEY')
 
 ALLOWED_HOSTS = [
+    'crc-rhsdoctors.pythonanywhere.com',
+    'localhost',
+]
+ALLOWED_HOSTS += [
     host.strip()
-    for host in env('CRC_ALLOWED_HOSTS', 'crc-rhsdoctors.pythonanywhere.com').split(',')
-    if host.strip()
+    for host in os.environ.get('CRC_ALLOWED_HOSTS', '').split(',')
+    if host.strip() and host.strip() not in ALLOWED_HOSTS
 ]
 
 DATABASES = {
