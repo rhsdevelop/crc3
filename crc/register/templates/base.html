@@ -119,6 +119,24 @@
                         <a class="collapse-item" href="/meetings/reunioes/add/">Preencher reuniões</a>
                         {% endif %}
                         <a class="collapse-item" href="/meetings/reunioes/list/">Demonstrativos e Cartões</a>
+                        {% if perms.meetings.view_reunioes %}
+                        <a class="collapse-item" href="/meetings/reunioes/s-3/">Gerar relatório S-3-T</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            {% endif %}
+            {% if perms.agenda.view_tarefasecretario or request.user.is_staff %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAgenda"
+                    aria-expanded="true" aria-controls="collapseAgenda">
+                    <i class="fas fa-fw fa-calendar"></i>
+                    <span>Agenda</span>
+                </a>
+                <div id="collapseAgenda" class="collapse" aria-labelledby="headingAgenda" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Rotinas:</h6>
+                        <a class="collapse-item" href="/agenda/tarefas/">Gestão de Tarefas</a>
                     </div>
                 </div>
             </li>

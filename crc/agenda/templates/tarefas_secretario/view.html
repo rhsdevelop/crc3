@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="container-fluid">
+  <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Informações</h6>
+    </div>
+    <div class="card-body">
+      <div class="row"><div class="col-lg-2"><b>Título:</b></div> {{ tarefa.titulo }}</div>
+      <div class="row"><div class="col-lg-2"><b>Descrição:</b></div> {{ tarefa.descricao|default_if_none:"" }}</div>
+      <div class="row"><div class="col-lg-2"><b>Congregação:</b></div> {{ tarefa.cong|default_if_none:"" }}</div>
+      <div class="row"><div class="col-lg-2"><b>Recorrência:</b></div> {{ tarefa.get_tipo_recorrencia_display }}</div>
+      <div class="row"><div class="col-lg-2"><b>Categoria:</b></div> {{ tarefa.get_categoria_display }}</div>
+      <div class="row"><div class="col-lg-2"><b>Mês referência:</b></div> {{ tarefa.get_mes_referencia_display|default_if_none:"" }}</div>
+      <div class="row"><div class="col-lg-2"><b>Ano referência:</b></div> {{ tarefa.ano_referencia|default_if_none:"" }}</div>
+      <div class="row"><div class="col-lg-2"><b>Data prevista:</b></div> {{ tarefa.data_prevista|date:'d/m/Y' }}</div>
+      <div class="row"><div class="col-lg-2"><b>Data limite:</b></div> {{ tarefa.data_limite|date:'d/m/Y' }}</div>
+      <div class="row"><div class="col-lg-2"><b>Status:</b></div> {{ tarefa.get_status_display }}</div>
+      <div class="row"><div class="col-lg-2"><b>Prioridade:</b></div> {{ tarefa.get_prioridade_display }}</div>
+      <div class="row"><div class="col-lg-2"><b>Observações:</b></div> {{ tarefa.observacoes|default_if_none:"" }}</div>
+      <div class="row"><div class="col-lg-2"><b>Data conclusão:</b></div> {{ tarefa.data_conclusao|date:'d/m/Y' }}</div>
+      <br>
+      <a href="/agenda/tarefas/"><button class="btn btn-primary">Retornar</button></a>
+    </div>
+  </div>
+</div>
+<br>
+{% endblock %}

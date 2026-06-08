@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+{% if perms.agenda.add_tarefasecretario %}
+<div class="col-lg-12">
+  <a href="/agenda/tarefas/add/"><button class="btn btn-info"><span class="fas fa-plus"></span> Adicionar Tarefa</button></a>
+  <form action="/agenda/tarefas/base/" method="post" style="display:inline;">
+    {% csrf_token %}
+    {% if request.user.is_staff %}
+    <select name="cong" class="form-control-sm">
+      <option value="">Congregação</option>
+      {% for cong in list_cong %}
+      <option value="{{ cong.id }}">{{ cong }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+    <button class="btn btn-secondary" type="submit"><span class="fas fa-tasks"></span> Carregar tarefas-base</button>
+  </form>
+</div>
+<br>
+{% endif %}
+<div class="card shadow mb-4">
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">{% bootstrap_field form.status %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.categoria %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.tipo_recorrencia %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.mes_referencia %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.ano_referencia %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.busca %}</div>
+            <div class="col-lg-3">{% bootstrap_field form.ordenacao %}</div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Título</th>
+            <th scope="col">Categoria</th>
+            <th scope="col">Referência</th>
+            <th scope="col">Data limite</th>
+            <th scope="col">Prioridade</th>
+            <th scope="col">Status</th>
+            <th scope="col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tarefa in list_tarefas %}
+          <tr>
+            <td>{{ tarefa.titulo }}</td>
+            <td>{{ tarefa.get_categoria_display }}</td>
+            <td>{{ tarefa.get_mes_referencia_display|default_if_none:"" }}{% if tarefa.mes_referencia and tarefa.ano_referencia %}/{% endif %}{{ tarefa.ano_referencia|default_if_none:"" }}</td>
+            <td><span hidden>{{ tarefa.data_limite|date:'Ymd' }}</span>{{ tarefa.data_limite|date:'d/m/Y' }}</td>
+            <td>{{ tarefa.get_prioridade_display }}</td>
+            <td>{{ tarefa.get_status_display }}</td>
+            <td>
+              <a href="/agenda/tarefas/{{ tarefa.id }}/view/"><button class="btn btn-primary"><span class="fas fa-eye"></span></button></a>
+              {% if perms.agenda.change_tarefasecretario %}
+              <a href="/agenda/tarefas/{{ tarefa.id }}/edit/"><button class="btn btn-info"><span class="fas fa-pen"></span></button></a>
+              {% if tarefa.status != 'concluida' %}
+              <form action="/agenda/tarefas/{{ tarefa.id }}/concluir/" method="post" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-success" type="submit"><span class="fas fa-check"></span></button>
+              </form>
+              {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+<script type="text/javascript">
+  $(document).ready( function() {
+    $('#example').dataTable( {
+      "pageLength": 25
+    });
+  })
+</script>
+{% endblock %}
