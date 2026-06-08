@@ -1,11 +1,76 @@
 import datetime
+from calendar import monthrange
 
+from django.conf import settings
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from django.db.models import Avg, Count, Sum
 from django.db.models.functions import TruncMonth
 
 from .models import Reunioes
+
+
+def adiciona_meses(data, meses):
+    mes = data.month - 1 + meses
+    ano = data.year + mes // 12
+    mes = mes % 12 + 1
+    return datetime.date(ano, mes, 1)
+
+
+def dias_reuniao_no_mes(mes, dia_semana):
+    ultimo_dia = monthrange(mes.year, mes.month)[1]
+    return [
+        datetime.date(mes.year, mes.month, dia).day
+        for dia in range(1, ultimo_dia + 1)
+        if datetime.date(mes.year, mes.month, dia).weekday() == dia_semana
+    ]
+
+
+def dias_meio_semana_por_coluna(dias_meio_semana, dias_fim_semana):
+    inicio = 0
+    if dias_meio_semana and dias_fim_semana and dias_meio_semana[0] > dias_fim_semana[0]:
+        inicio = 1
+    return [
+        (coluna + inicio, dia)
+        for coluna, dia in enumerate(dias_meio_semana)
+        if coluna + inicio < 5
+    ]
+
+
+def imprime_s3_reunioes(arquivo, congregacao, mes_inicial, dia_meio_semana, dia_fim_semana):
+    pagina_largura = 595
+    pagina_altura = 842
+    template = settings.BASE_DIR / "static/img/S-3_T_template.jpg"
+    meses = [adiciona_meses(mes_inicial, i) for i in range(3)]
+    blocos = [
+        {'congregacao_y': 697, 'mes_y': 697, 'meio_y': 646, 'fim_y': 606},
+        {'congregacao_y': 448, 'mes_y': 448, 'meio_y': 397, 'fim_y': 357},
+        {'congregacao_y': 199, 'mes_y': 199, 'meio_y': 148, 'fim_y': 108},
+    ]
+    semana_x = [207, 244, 281, 318, 355]
+    congregacao_x = 231
+    mes_x = 385
+
+    icanvas = canvas.Canvas(arquivo)
+    icanvas.setPageSize((pagina_largura, pagina_altura))
+    icanvas.drawImage(str(template), 0, 0, width=pagina_largura, height=pagina_altura, preserveAspectRatio=False)
+    icanvas.setFillColorRGB(0, 0, 0)
+
+    for index, mes in enumerate(meses):
+        bloco = blocos[index]
+        icanvas.setFont('Times-Roman', 14)
+        icanvas.drawString(congregacao_x, bloco['congregacao_y'], congregacao)
+        icanvas.drawString(mes_x, bloco['mes_y'], mes.strftime('%m/%Y'))
+        icanvas.setFont('Times-Bold', 9)
+        dias_meio = dias_reuniao_no_mes(mes, dia_meio_semana)
+        dias_fim = dias_reuniao_no_mes(mes, dia_fim_semana)
+        for semana, dia in dias_meio_semana_por_coluna(dias_meio, dias_fim):
+            icanvas.drawCentredString(semana_x[semana], bloco['meio_y'] + 4, str(dia))
+        for semana, dia in enumerate(dias_fim[:5]):
+            icanvas.drawCentredString(semana_x[semana], bloco['fim_y'] + 4, str(dia))
+
+    icanvas.save()
+    return arquivo
 
 
 def imprime_cartao_resumo(arquivo, meses_intervalo, cong_id, formulario=True, cabecalho=True, dados=True, exibir_soma=True):

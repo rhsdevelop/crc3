@@ -14,8 +14,8 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.template import loader
 
-from .forms import AddReunioesForm, FindReunioesForm
-from .helpers import imprime_cartao_resumo
+from .forms import AddReunioesForm, FindReunioesForm, S3ReunioesForm
+from .helpers import imprime_cartao_resumo, imprime_s3_reunioes
 from .models import Reunioes, TIPO_REUNIAO
 from register.models import CongUser
 
@@ -148,6 +148,34 @@ def list_reunioes(request):
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'resumo': resumo,
         'list_reunioes': list_reunioes,
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('meetings.view_reunioes')
+def s3_reunioes(request):
+    form = S3ReunioesForm(request.GET or None)
+    if request.GET and form.is_valid():
+        arquivo = BytesIO()
+        imprime_s3_reunioes(
+            arquivo,
+            form.cleaned_data['congregacao'],
+            form.cleaned_data['mes_inicial'],
+            int(form.cleaned_data['dia_meio_semana']),
+            int(form.cleaned_data['dia_fim_semana']),
+        )
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="S-3-T-Reunioes.pdf"'
+        pdf = arquivo.getvalue()
+        arquivo.close()
+        response.write(pdf)
+        return response
+    template = loader.get_template('reunioes/s3.html')
+    context = {
+        'title': 'Gerar relatório S-3-T',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'form': form,
     }
     return HttpResponse(template.render(context, request))
