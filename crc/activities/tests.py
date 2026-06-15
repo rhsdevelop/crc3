@@ -245,6 +245,35 @@ class AnaliseTests(TestCase):
         self.assertContains(response, 'Publicador Local')
         self.assertNotContains(response, 'Publicador Outra Congregação')
 
+    def test_filtra_por_grupo_de_servico(self):
+        grupo_extra = Grupos.objects.create(grupo='Grupo Extra', dirigente='Dirigente Extra', cong=self.cong_a)
+        self.criar_publicador('Publicador Grupo A', self.cong_a, self.grupo_a)
+        self.criar_publicador('Publicador Grupo Extra', self.cong_a, grupo_extra)
+
+        self.client.login(username='staff_analise', password='senha')
+        response = self.client.get(self.url, {
+            'mes_inicio': '2025-12',
+            'mes_fim': '2026-05',
+            'grupo': grupo_extra.id,
+        })
+
+        self.assertContains(response, 'Publicador Grupo Extra')
+        self.assertNotContains(response, 'Publicador Grupo A')
+
+    def test_usuario_comum_nao_vaza_dados_ao_informar_grupo_de_outra_congregacao(self):
+        self.criar_publicador('Publicador Local', self.cong_a, self.grupo_a)
+        self.criar_publicador('Publicador Outra Congregação', self.cong_b, self.grupo_b)
+
+        self.client.login(username='usuario_analise', password='senha')
+        response = self.client.get(self.url, {
+            'mes_inicio': '2025-12',
+            'mes_fim': '2026-05',
+            'grupo': self.grupo_b.id,
+        })
+
+        self.assertNotContains(response, 'Publicador Local')
+        self.assertNotContains(response, 'Publicador Outra Congregação')
+
     @patch('activities.views.datetime')
     def test_filtra_por_idade_minima(self, datetime_mock):
         datetime_mock.date.today.return_value = datetime.date(2026, 6, 15)
@@ -338,6 +367,8 @@ class AnaliseTests(TestCase):
         })
 
         self.assertContains(response, 'Incluído')
+        self.assertContains(response, 'Pioneiro Regular')
+        self.assertNotContains(response, '<option value="1">Pioneiro Auxiliar</option>', html=True)
         self.assertNotContains(response, 'Sexo Excluído')
         self.assertNotContains(response, 'Tipo Excluído')
         self.assertNotContains(response, 'Privilégio Excluído')

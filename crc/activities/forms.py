@@ -81,6 +81,7 @@ class FindResumoPioneirosRegularesForm(forms.Form):
 
 
 class FindAnaliseForm(forms.Form):
+    grupo = forms.ModelChoiceField(queryset=Grupos.objects.all(), label='Grupo de serviço', required=False)
     sexo = forms.MultipleChoiceField(
         choices=SEXO,
         label='Sexo',
@@ -88,10 +89,10 @@ class FindAnaliseForm(forms.Form):
         widget=forms.SelectMultiple(attrs={'size': 2})
     )
     tipo = forms.MultipleChoiceField(
-        choices=TIPO[0:3],
+        choices=[TIPO[0], TIPO[2]],
         label='Tipo',
         required=False,
-        widget=forms.SelectMultiple(attrs={'size': 3})
+        widget=forms.SelectMultiple(attrs={'size': 2})
     )
     privilegio = forms.MultipleChoiceField(
         choices=PRIVILEGIO,

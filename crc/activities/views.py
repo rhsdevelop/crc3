@@ -362,6 +362,7 @@ def analise(request):
     fim = primeiro_dia_mes(mes_fim, mes_fim_padrao)
 
     form = FindAnaliseForm(initial={
+        'grupo': request.GET.get('grupo'),
         'sexo': request.GET.getlist('sexo'),
         'tipo': request.GET.getlist('tipo'),
         'privilegio': request.GET.getlist('privilegio'),
@@ -376,7 +377,10 @@ def analise(request):
             messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
             return redirect('/')
         filter_search['cong_id'] = crc_user.cong_id
+        form.fields['grupo'].queryset = Grupos.objects.filter(cong_id=crc_user.cong_id).order_by('grupo')
 
+    if request.GET.get('grupo'):
+        filter_search['grupo_id'] = request.GET['grupo']
     if request.GET.getlist('sexo'):
         filter_search['sexo__in'] = request.GET.getlist('sexo')
     if request.GET.getlist('tipo'):
