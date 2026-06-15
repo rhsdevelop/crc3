@@ -306,8 +306,9 @@ class AnaliseTests(TestCase):
             'export': 'csv',
         })
 
-        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8')
         self.assertEqual(response['Content-Disposition'], 'attachment; filename=analise-publicadores.csv')
+        self.assertTrue(response.content.startswith(b'\xef\xbb\xbf'))
         content = response.content.decode('utf-8')
         self.assertIn('Publicador;Idade;Privilégio;Pioneiro Regular;Pioneiro Auxiliar;Estudos;Dirige estudos', content)
         self.assertIn('CSV Incluído;36;Servo Ministerial;Não;1;2;Sim', content)

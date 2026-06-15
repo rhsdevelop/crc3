@@ -431,6 +431,7 @@ def analise(request):
 
 def sheet_analise(list_analise):
     io_report = StringIO()
+    io_report.write('\ufeff')
     writerio = csv.writer(io_report, delimiter=';')
     writerio.writerow([
         'Publicador',
@@ -452,7 +453,7 @@ def sheet_analise(list_analise):
             publicador.estudos_ultimo_mes,
             'Sim' if publicador.estudos_periodo else 'Não',
         ])
-    response = HttpResponse(io_report.getvalue(), content_type='text/csv')
+    response = HttpResponse(io_report.getvalue(), content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename=analise-publicadores.csv'
     return response
 
