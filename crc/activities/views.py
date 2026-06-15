@@ -6,7 +6,7 @@ from io import BytesIO, StringIO
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from register.models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros, TIPO
-from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindResumoPioneirosRegularesForm, FindCartoesForm
+from .forms import AddRelatoriosForm, FindRelatoriosForm, FindResumoForm, FindResumoPioneirosRegularesForm, FindAnaliseForm, FindCartoesForm
 from .helpers import imprime_cartao, imprime_cartao_resumo
 from .models import Relatorios
 
@@ -24,6 +24,20 @@ def periodo_ano_servico(data=None):
     data = data or datetime.date.today()
     ano_servico = data.year if data.month >= 9 else data.year - 1
     return '%s-09' % ano_servico, '%s-08' % (ano_servico + 1)
+
+
+def adicionar_meses(data, meses):
+    mes = data.month - 1 + meses
+    ano = data.year + mes // 12
+    mes = mes % 12 + 1
+    return datetime.date(ano, mes, 1)
+
+
+def periodo_ultimos_seis_meses(data=None):
+    data = data or datetime.date.today()
+    ultimo_mes = (data.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+    inicio = adicionar_meses(ultimo_mes, -5)
+    return inicio.strftime('%Y-%m'), ultimo_mes.strftime('%Y-%m')
 
 
 def primeiro_dia_mes(mes, padrao):
@@ -318,6 +332,67 @@ def sheet_resumo_pioneiros_regulares(list_pioneiros):
     response = HttpResponse(io_report.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename=resumo-pioneiros-regulares.csv'
     return response
+
+
+@login_required
+@permission_required('activities.view_relatorios')
+def analise(request):
+    mes_inicio_padrao, mes_fim_padrao = periodo_ultimos_seis_meses()
+    mes_inicio = request.GET.get('mes_inicio') or mes_inicio_padrao
+    mes_fim = request.GET.get('mes_fim') or mes_fim_padrao
+    inicio = primeiro_dia_mes(mes_inicio, mes_inicio_padrao)
+    fim = primeiro_dia_mes(mes_fim, mes_fim_padrao)
+
+    form = FindAnaliseForm(initial={
+        'sexo': request.GET.getlist('sexo'),
+        'tipo': request.GET.getlist('tipo'),
+        'privilegio': request.GET.getlist('privilegio'),
+        'mes_inicio': mes_inicio,
+        'mes_fim': mes_fim,
+    })
+    filter_search = {'situacao': 1}
+    if not request.user.is_staff:
+        crc_user = CongUser.objects.filter(user=request.user).first()
+        if not crc_user:
+            messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+            return redirect('/')
+        filter_search['cong_id'] = crc_user.cong_id
+
+    if request.GET.getlist('sexo'):
+        filter_search['sexo__in'] = request.GET.getlist('sexo')
+    if request.GET.getlist('tipo'):
+        filter_search['tipo__in'] = request.GET.getlist('tipo')
+    if request.GET.getlist('privilegio'):
+        filter_search['privilegio__in'] = request.GET.getlist('privilegio')
+
+    relatorios_periodo = Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)
+    relatorios_ultimo_mes = Q(relatorios__mes=fim)
+    list_analise = Publicadores.objects.filter(**filter_search).select_related('cong', 'grupo').annotate(
+        meses_pioneiro_auxiliar=Count(
+            'relatorios__mes',
+            filter=relatorios_periodo & Q(relatorios__tipo=1),
+            distinct=True,
+        ),
+        estudos_ultimo_mes=Coalesce(
+            Sum('relatorios__estudos', filter=relatorios_ultimo_mes),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+        estudos_periodo=Coalesce(
+            Sum('relatorios__estudos', filter=relatorios_periodo),
+            Value(0),
+            output_field=IntegerField(),
+        ),
+    ).order_by('nome')
+
+    template = loader.get_template('analise/list.html')
+    context = {
+        'title': 'Análise de Publicadores',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'list_analise': list_analise,
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
 
 
 @login_required

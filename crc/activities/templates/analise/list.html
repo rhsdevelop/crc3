@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <div class="collapse show" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {% bootstrap_field form.mes_inicio %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.mes_fim %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.sexo %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.tipo %}
+            </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.privilegio %}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="example" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Publicador</th>
+            <th scope="col">Pioneiro Regular</th>
+            <th scope="col">Pioneiro Auxiliar</th>
+            <th scope="col">Estudos</th>
+            <th scope="col">Dirige estudos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for publicador in list_analise %}
+          <tr>
+            <th scope="row">{{ publicador.nome }}</th>
+            <td>{% if publicador.tipo == 2 %}Sim{% else %}Não{% endif %}</td>
+            <td>{% if publicador.tipo == 2 %}-{% else %}{{ publicador.meses_pioneiro_auxiliar }}{% endif %}</td>
+            <td>{{ publicador.estudos_ultimo_mes }}</td>
+            <td>{% if publicador.estudos_periodo %}Sim{% else %}Não{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+<script type="text/javascript">
+  $(document).ready( function() {
+    $('#example').dataTable( {
+      "pageLength": 25
+    });
+  })
+</script>
+{% endblock %}
