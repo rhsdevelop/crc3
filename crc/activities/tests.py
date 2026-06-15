@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from register.models import Cong, CongUser, Grupos, Publicadores
 from .models import Relatorios
-from .views import periodo_ano_servico, periodo_ultimos_seis_meses
+from .views import calcular_idade, data_nascimento_idade_minima, periodo_ano_servico, periodo_ultimos_seis_meses
 
 
 class ResumoPioneirosRegularesTests(TestCase):
@@ -140,10 +140,11 @@ class AnaliseTests(TestCase):
         self.staff = User.objects.create_superuser(username='staff_analise', password='senha')
         self.url = reverse('activities:analise')
 
-    def criar_publicador(self, nome, congregacao, grupo, tipo=0, sexo=0, privilegio=0, situacao=1):
+    def criar_publicador(self, nome, congregacao, grupo, tipo=0, sexo=0, privilegio=0, situacao=1, nascimento=None):
         return Publicadores.objects.create(
             nome=nome,
             endereco='Endereço',
+            nascimento=nascimento,
             esperanca=0,
             privilegio=privilegio,
             tipo=tipo,
@@ -166,16 +167,19 @@ class AnaliseTests(TestCase):
             tipo=tipo,
         )
 
-    def assertLinha(self, response, nome, pioneiro_regular, pioneiro_auxiliar, estudos, dirige_estudos):
+    def assertLinha(self, response, nome, privilegio, pioneiro_regular, pioneiro_auxiliar, estudos, dirige_estudos):
         content = response.content.decode('utf-8')
         pattern = (
             r'<th scope="row">%s</th>\s*'
+            r'<td>[^<]*</td>\s*'
+            r'<td>%s</td>\s*'
             r'<td>%s</td>\s*'
             r'<td>%s</td>\s*'
             r'<td>%s</td>\s*'
             r'<td>%s</td>'
         ) % (
             re.escape(nome),
+            re.escape(privilegio),
             re.escape(pioneiro_regular),
             re.escape(str(pioneiro_auxiliar)),
             re.escape(str(estudos)),
@@ -187,10 +191,23 @@ class AnaliseTests(TestCase):
         self.assertEqual(periodo_ultimos_seis_meses(datetime.date(2026, 6, 15)), ('2025-12', '2026-05'))
         self.assertEqual(periodo_ultimos_seis_meses(datetime.date(2026, 1, 10)), ('2025-07', '2025-12'))
 
+    def test_calcula_idade(self):
+        self.assertEqual(calcular_idade(datetime.date(2000, 6, 14), datetime.date(2026, 6, 15)), 26)
+        self.assertEqual(calcular_idade(datetime.date(2000, 6, 16), datetime.date(2026, 6, 15)), 25)
+        self.assertEqual(calcular_idade(None, datetime.date(2026, 6, 15)), '')
+        self.assertEqual(data_nascimento_idade_minima(18, datetime.date(2026, 6, 15)), datetime.date(2008, 6, 15))
+
     @patch('activities.views.periodo_ultimos_seis_meses', return_value=('2025-12', '2026-05'))
     def test_staff_visualiza_todas_congregacoes_e_calculos(self, periodo_mock):
-        regular = self.criar_publicador('Regular Ana', self.cong_a, self.grupo_a, tipo=2)
-        auxiliar = self.criar_publicador('Auxiliar Bia', self.cong_a, self.grupo_a, tipo=0)
+        regular = self.criar_publicador(
+            'Regular Ana',
+            self.cong_a,
+            self.grupo_a,
+            tipo=2,
+            privilegio=2,
+            nascimento=datetime.date(2000, 1, 1),
+        )
+        auxiliar = self.criar_publicador('Auxiliar Bia', self.cong_a, self.grupo_a, tipo=0, privilegio=1)
         publicador = self.criar_publicador('Publicador Carlos', self.cong_b, self.grupo_b, tipo=0)
         self.criar_publicador('Inativo Daniel', self.cong_a, self.grupo_a, situacao=0)
 
@@ -209,9 +226,12 @@ class AnaliseTests(TestCase):
         self.assertContains(response, 'Auxiliar Bia')
         self.assertContains(response, 'Publicador Carlos')
         self.assertNotContains(response, 'Inativo Daniel')
-        self.assertLinha(response, 'Regular Ana', 'Sim', '-', 2, 'Sim')
-        self.assertLinha(response, 'Auxiliar Bia', 'Não', 2, 4, 'Sim')
-        self.assertLinha(response, 'Publicador Carlos', 'Não', 0, 0, 'Não')
+        self.assertContains(response, '<th scope="col">Idade</th>', html=True)
+        self.assertContains(response, '<th scope="col">Privilégio</th>', html=True)
+        self.assertContains(response, '<td>Ancião</td>', html=True)
+        self.assertLinha(response, 'Regular Ana', 'Ancião', 'Sim', '-', 2, 'Sim')
+        self.assertLinha(response, 'Auxiliar Bia', 'Servo Ministerial', 'Não', 2, 4, 'Sim')
+        self.assertLinha(response, 'Publicador Carlos', 'Publicador', 'Não', 0, 0, 'Não')
 
     def test_usuario_comum_visualiza_apenas_sua_congregacao(self):
         publicador_a = self.criar_publicador('Publicador Local', self.cong_a, self.grupo_a)
@@ -224,6 +244,37 @@ class AnaliseTests(TestCase):
 
         self.assertContains(response, 'Publicador Local')
         self.assertNotContains(response, 'Publicador Outra Congregação')
+
+    @patch('activities.views.datetime')
+    def test_filtra_por_idade_minima(self, datetime_mock):
+        datetime_mock.date.today.return_value = datetime.date(2026, 6, 15)
+        datetime_mock.date.side_effect = lambda *args, **kwargs: datetime.date(*args, **kwargs)
+        datetime_mock.datetime = datetime.datetime
+        datetime_mock.timedelta = datetime.timedelta
+        self.criar_publicador(
+            'Maior',
+            self.cong_a,
+            self.grupo_a,
+            nascimento=datetime.date(2008, 6, 15),
+        )
+        self.criar_publicador(
+            'Menor',
+            self.cong_a,
+            self.grupo_a,
+            nascimento=datetime.date(2008, 6, 16),
+        )
+        self.criar_publicador('Sem Nascimento', self.cong_a, self.grupo_a)
+
+        self.client.login(username='staff_analise', password='senha')
+        response = self.client.get(self.url, {
+            'mes_inicio': '2025-12',
+            'mes_fim': '2026-05',
+            'idade_minima': '18',
+        })
+
+        self.assertContains(response, 'Maior')
+        self.assertNotContains(response, 'Menor')
+        self.assertNotContains(response, 'Sem Nascimento')
 
     def test_filtros_multiplos_de_sexo_tipo_privilegio(self):
         incluido = self.criar_publicador(

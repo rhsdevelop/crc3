@@ -40,6 +40,24 @@ def periodo_ultimos_seis_meses(data=None):
     return inicio.strftime('%Y-%m'), ultimo_mes.strftime('%Y-%m')
 
 
+def calcular_idade(nascimento, data=None):
+    if not nascimento:
+        return ''
+    data = data or datetime.date.today()
+    idade = data.year - nascimento.year
+    if (data.month, data.day) < (nascimento.month, nascimento.day):
+        idade -= 1
+    return idade
+
+
+def data_nascimento_idade_minima(idade_minima, data=None):
+    data = data or datetime.date.today()
+    try:
+        return data.replace(year=data.year - idade_minima)
+    except ValueError:
+        return data.replace(year=data.year - idade_minima, day=28)
+
+
 def primeiro_dia_mes(mes, padrao):
     try:
         return datetime.datetime.strptime(mes + '-01', '%Y-%m-%d').date()
@@ -347,6 +365,7 @@ def analise(request):
         'sexo': request.GET.getlist('sexo'),
         'tipo': request.GET.getlist('tipo'),
         'privilegio': request.GET.getlist('privilegio'),
+        'idade_minima': request.GET.get('idade_minima'),
         'mes_inicio': mes_inicio,
         'mes_fim': mes_fim,
     })
@@ -364,6 +383,13 @@ def analise(request):
         filter_search['tipo__in'] = request.GET.getlist('tipo')
     if request.GET.getlist('privilegio'):
         filter_search['privilegio__in'] = request.GET.getlist('privilegio')
+    if request.GET.get('idade_minima'):
+        try:
+            idade_minima = int(request.GET['idade_minima'])
+        except ValueError:
+            idade_minima = None
+        if idade_minima is not None and idade_minima >= 0:
+            filter_search['nascimento__lte'] = data_nascimento_idade_minima(idade_minima)
 
     relatorios_periodo = Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)
     relatorios_ultimo_mes = Q(relatorios__mes=fim)
@@ -384,6 +410,9 @@ def analise(request):
             output_field=IntegerField(),
         ),
     ).order_by('nome')
+    hoje = datetime.date.today()
+    for publicador in list_analise:
+        publicador.idade = calcular_idade(publicador.nascimento, hoje)
 
     template = loader.get_template('analise/list.html')
     context = {

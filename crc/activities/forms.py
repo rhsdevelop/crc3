@@ -99,6 +99,11 @@ class FindAnaliseForm(forms.Form):
         required=False,
         widget=forms.SelectMultiple(attrs={'size': 3})
     )
+    idade_minima = forms.IntegerField(
+        label='Idade mínima',
+        min_value=0,
+        required=False
+    )
     mes_inicio = forms.DateField(
         label='Período inicial',
         widget=forms.widgets.TextInput(

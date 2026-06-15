@@ -26,6 +26,9 @@
             <div class="col-lg-3">
               {% bootstrap_field form.privilegio %}
             </div>
+            <div class="col-lg-3">
+              {% bootstrap_field form.idade_minima %}
+            </div>
           </div>
           <div class="col-lg-12">
             <button class="btn btn-primary" type="submit">Buscar</button>
@@ -44,6 +47,8 @@
         <thead>
           <tr>
             <th scope="col">Publicador</th>
+            <th scope="col">Idade</th>
+            <th scope="col">Privilégio</th>
             <th scope="col">Pioneiro Regular</th>
             <th scope="col">Pioneiro Auxiliar</th>
             <th scope="col">Estudos</th>
@@ -54,6 +59,8 @@
           {% for publicador in list_analise %}
           <tr>
             <th scope="row">{{ publicador.nome }}</th>
+            <td>{{ publicador.idade }}</td>
+            <td>{{ publicador.get_privilegio_display }}</td>
             <td>{% if publicador.tipo == 2 %}Sim{% else %}Não{% endif %}</td>
             <td>{% if publicador.tipo == 2 %}-{% else %}{{ publicador.meses_pioneiro_auxiliar }}{% endif %}</td>
             <td>{{ publicador.estudos_ultimo_mes }}</td>
