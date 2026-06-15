@@ -413,6 +413,10 @@ def analise(request):
     hoje = datetime.date.today()
     for publicador in list_analise:
         publicador.idade = calcular_idade(publicador.nascimento, hoje)
+    if request.GET.get('export') == 'csv':
+        return sheet_analise(list_analise)
+    spreadsheet_query = request.GET.copy()
+    spreadsheet_query['export'] = 'csv'
 
     template = loader.get_template('analise/list.html')
     context = {
@@ -420,8 +424,37 @@ def analise(request):
         'username': '%s %s' % (request.user.first_name, request.user.last_name),
         'list_analise': list_analise,
         'form': form,
+        'spreadsheet_url': '?%s' % spreadsheet_query.urlencode(),
     }
     return HttpResponse(template.render(context, request))
+
+
+def sheet_analise(list_analise):
+    io_report = StringIO()
+    writerio = csv.writer(io_report, delimiter=';')
+    writerio.writerow([
+        'Publicador',
+        'Idade',
+        'Privilégio',
+        'Pioneiro Regular',
+        'Pioneiro Auxiliar',
+        'Estudos',
+        'Dirige estudos',
+    ])
+    for publicador in list_analise:
+        pioneiro_regular = publicador.tipo == 2
+        writerio.writerow([
+            publicador.nome,
+            publicador.idade,
+            publicador.get_privilegio_display(),
+            'Sim' if pioneiro_regular else 'Não',
+            '-' if pioneiro_regular else publicador.meses_pioneiro_auxiliar,
+            publicador.estudos_ultimo_mes,
+            'Sim' if publicador.estudos_periodo else 'Não',
+        ])
+    response = HttpResponse(io_report.getvalue(), content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=analise-publicadores.csv'
+    return response
 
 
 @login_required

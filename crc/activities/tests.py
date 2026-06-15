@@ -276,6 +276,43 @@ class AnaliseTests(TestCase):
         self.assertNotContains(response, 'Menor')
         self.assertNotContains(response, 'Sem Nascimento')
 
+    @patch('activities.views.datetime')
+    def test_exportacao_csv_respeita_filtros_e_inclui_dados_da_tabela(self, datetime_mock):
+        datetime_mock.date.today.return_value = datetime.date(2026, 6, 15)
+        datetime_mock.date.side_effect = lambda *args, **kwargs: datetime.date(*args, **kwargs)
+        datetime_mock.datetime = datetime.datetime
+        datetime_mock.timedelta = datetime.timedelta
+        incluido = self.criar_publicador(
+            'CSV Incluído',
+            self.cong_a,
+            self.grupo_a,
+            privilegio=1,
+            nascimento=datetime.date(1990, 6, 15),
+        )
+        excluido = self.criar_publicador(
+            'CSV Excluído',
+            self.cong_a,
+            self.grupo_a,
+            nascimento=datetime.date(2010, 6, 15),
+        )
+        self.criar_relatorio(incluido, datetime.date(2026, 5, 1), tipo=1, estudos=2)
+        self.criar_relatorio(excluido, datetime.date(2026, 5, 1), tipo=1, estudos=9)
+
+        self.client.login(username='staff_analise', password='senha')
+        response = self.client.get(self.url, {
+            'mes_inicio': '2025-12',
+            'mes_fim': '2026-05',
+            'idade_minima': '18',
+            'export': 'csv',
+        })
+
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertEqual(response['Content-Disposition'], 'attachment; filename=analise-publicadores.csv')
+        content = response.content.decode('utf-8')
+        self.assertIn('Publicador;Idade;Privilégio;Pioneiro Regular;Pioneiro Auxiliar;Estudos;Dirige estudos', content)
+        self.assertIn('CSV Incluído;36;Servo Ministerial;Não;1;2;Sim', content)
+        self.assertNotIn('CSV Excluído', content)
+
     def test_filtros_multiplos_de_sexo_tipo_privilegio(self):
         incluido = self.criar_publicador(
             'Incluído',
