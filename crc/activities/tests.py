@@ -47,7 +47,7 @@ class ResumoPioneirosRegularesTests(TestCase):
             cong=congregacao,
         )
 
-    def criar_relatorio(self, publicador, mes, horas):
+    def criar_relatorio(self, publicador, mes, horas, tipo=2):
         return Relatorios.objects.create(
             publicador=publicador,
             mes=mes,
@@ -56,7 +56,7 @@ class ResumoPioneirosRegularesTests(TestCase):
             horas=horas,
             revisitas=0,
             estudos=0,
-            tipo=2,
+            tipo=tipo,
         )
 
     def test_periodo_padrao_usa_ano_de_servico(self):
@@ -94,6 +94,22 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertContains(response, '<td>1</td>', html=True)
         self.assertContains(response, '<td>-20</td>', html=True)
         self.assertNotContains(response, 'Pioneiro A')
+
+    def test_considera_apenas_meses_como_pioneiro_regular(self):
+        pioneiro_meio_periodo = self.criar_publicador('Pioneiro Meio Período', self.cong_a, self.grupo_a)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 9, 1), 5, tipo=0)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 10, 1), 20, tipo=1)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 11, 1), 50, tipo=2)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 12, 1), 60, tipo=2)
+
+        self.client.login(username='usuario', password='senha')
+        response = self.client.get(self.url, {'publicador': 'Pioneiro Meio Período'})
+
+        self.assertContains(response, 'Pioneiro Meio Período')
+        self.assertContains(response, '<td>110</td>', html=True)
+        self.assertContains(response, '<td>2</td>', html=True)
+        self.assertContains(response, '<td>55</td>', html=True)
+        self.assertContains(response, '<td>490</td>', html=True)
 
     def test_usuario_comum_nao_vaza_dados_ao_informar_grupo_de_outra_congregacao(self):
         self.client.login(username='usuario', password='senha')

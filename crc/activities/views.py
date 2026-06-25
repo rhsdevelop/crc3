@@ -302,7 +302,11 @@ def resumo_pioneiros_regulares(request):
     if request.GET.get('publicador'):
         filter_search['nome__icontains'] = request.GET['publicador']
 
-    relatorios_periodo = Q(relatorios__mes__gte=inicio, relatorios__mes__lte=fim)
+    relatorios_periodo = Q(
+        relatorios__mes__gte=inicio,
+        relatorios__mes__lte=fim,
+        relatorios__tipo=2,
+    )
     list_pioneiros = Publicadores.objects.filter(**filter_search).select_related('grupo', 'cong').annotate(
         total_horas=Coalesce(
             Sum('relatorios__horas', filter=relatorios_periodo),
