@@ -162,5 +162,8 @@ cython_debug/
 #.idea/
 
 **/migrations/*
+crc/register/migrations/
+crc/register/migrations/__init__.py
+crc/register/migrations/*.py
 salao.db
 staticfiles/

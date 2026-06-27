@@ -92,6 +92,23 @@ class Grupos(models.Model):
         return self.grupo
 
 
+class ComissaoServico(models.Model):
+    cong = models.OneToOneField(Cong, db_column='Cong', on_delete=models.PROTECT)
+    coordenador = models.CharField(db_column='Coordenador', max_length=100, blank=True, null=True)
+    superintendente_servico = models.CharField(db_column='Superintendente_Servico', max_length=100, blank=True, null=True)
+    secretario = models.CharField(db_column='Secretario', max_length=100, blank=True, null=True)
+    create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='comissaoservico_user_create', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+    assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='comissaoservico_user_assign', blank=True, null=True)
+    modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'Comissao_Servico'
+
+    def __str__(self) -> str:
+        return str(self.cong)
+
+
 class Publicadores(models.Model):
     nome = models.CharField(db_column='Nome', max_length=50)
     endereco = models.CharField(db_column='Endereco', max_length=100)

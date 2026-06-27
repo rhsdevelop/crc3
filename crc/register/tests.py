@@ -1,12 +1,13 @@
 import datetime
 from unittest.mock import patch
 
+from django.contrib.auth.models import Permission
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
 from activities.models import Relatorios
-from .models import Cong, CongUser, Pioneiros, Publicadores
+from .models import ComissaoServico, Cong, CongUser, Pioneiros, Publicadores
 
 
 class CongUserListTests(TestCase):
@@ -116,12 +117,56 @@ class DashboardTests(TestCase):
         self.assertEqual(response.context['dashboard_values'], [0, 0, 1, 0])
 
 
+class ComissaoServicoTests(TestCase):
+    def setUp(self):
+        self.cong_a = Cong.objects.create(nome='Congregação A', numero=1)
+        self.cong_b = Cong.objects.create(nome='Congregação B', numero=2)
+        self.staff = User.objects.create_superuser(username='staff_comissao', password='senha')
+        self.user = User.objects.create_user(username='user_comissao', password='senha')
+        self.user.user_permissions.add(
+            Permission.objects.get(codename='view_publicadores'),
+            Permission.objects.get(codename='view_comissaoservico'),
+            Permission.objects.get(codename='change_comissaoservico'),
+        )
+        CongUser.objects.create(cong=self.cong_a, user=self.user)
+        self.url = reverse('register:list_comissao_servico')
+
+    def test_usuario_comum_ve_menu_e_apenas_comissao_da_sua_congregacao(self):
+        ComissaoServico.objects.create(cong=self.cong_b, coordenador='Outra Congregação')
+        self.client.login(username='user_comissao', password='senha')
+
+        response = self.client.get(self.url)
+
+        self.assertContains(response, 'Comissão de Serviço')
+        self.assertContains(response, 'Congregação A')
+        self.assertNotContains(response, 'Congregação B')
+        self.assertTrue(ComissaoServico.objects.filter(cong=self.cong_a).exists())
+
+    def test_edita_assinaturas_da_comissao(self):
+        comissao = ComissaoServico.objects.create(cong=self.cong_a)
+        self.client.login(username='staff_comissao', password='senha')
+
+        response = self.client.post(reverse('register:edit_comissao_servico', args=[comissao.id]), {
+            'cong': self.cong_a.id,
+            'coordenador': 'Coordenador Atual',
+            'superintendente_servico': 'Superintendente Atual',
+            'secretario': 'Secretário Atual',
+        })
+
+        self.assertRedirects(response, '/comissao-servico/list/')
+        comissao.refresh_from_db()
+        self.assertEqual(comissao.coordenador, 'Coordenador Atual')
+        self.assertEqual(comissao.superintendente_servico, 'Superintendente Atual')
+        self.assertEqual(comissao.secretario, 'Secretário Atual')
+
+
 class PioneirosReturnUrlTests(TestCase):
     def setUp(self):
         self.cong = Cong.objects.create(nome='Congregação', numero=1)
+        self.outra_cong = Cong.objects.create(nome='Outra Congregação', numero=2)
         self.user = User.objects.create_superuser(username='staff_pioneiros', password='senha')
         self.publicador = Publicadores.objects.create(
-            nome='João',
+            nome='Joao',
             endereco='Endereço',
             esperanca=0,
             privilegio=0,
@@ -150,6 +195,7 @@ class PioneirosReturnUrlTests(TestCase):
         next_url = '/pioneiros/list/%%3Fpublicador%%3D%s%%26mes%%3D2026-05%%26foo%%3Dbar' % self.publicador.id
         self.assertContains(response, '/pioneiros/add/?next=%s' % next_url)
         self.assertContains(response, '/pioneiros/%s/delete/?next=%s' % (self.pioneiro.id, next_url))
+        self.assertContains(response, '/pioneiros/%s/peticao/' % self.pioneiro.id)
 
     def test_tela_de_add_mantem_next_no_formulario(self):
         next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
@@ -186,3 +232,59 @@ class PioneirosReturnUrlTests(TestCase):
         })
 
         self.assertRedirects(response, '/pioneiros/list/', fetch_redirect_response=False)
+
+    def test_pdf_da_peticao_inclui_dados_do_publicador_mes_e_comissao(self):
+        ComissaoServico.objects.create(
+            cong=self.cong,
+            coordenador='Coordenador Teste',
+            superintendente_servico='Superintendente Teste',
+            secretario='Secretario Teste',
+        )
+
+        response = self.client.get(reverse('register:peticao_pioneiro_auxiliar', args=[self.pioneiro.id]))
+
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertEqual(
+            response['Content-Disposition'],
+            'inline; filename=peticao-pioneiro-auxiliar-%s.pdf' % self.pioneiro.id,
+        )
+        self.assertTrue(response.content.startswith(b'%PDF'))
+        self.assertIn(b'05/2026', response.content)
+        self.assertIn(b'Teste', response.content)
+        self.assertIn(b'Joao', response.content)
+        self.assertIn(b'Coordenador Teste', response.content)
+        self.assertIn(b'Secretario Teste', response.content)
+
+    def test_pdf_da_peticao_funciona_sem_comissao_cadastrada(self):
+        response = self.client.get(reverse('register:peticao_pioneiro_auxiliar', args=[self.pioneiro.id]))
+
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_usuario_comum_nao_imprime_peticao_de_outra_congregacao(self):
+        usuario = User.objects.create_user(username='usuario_pioneiros', password='senha')
+        usuario.user_permissions.add(Permission.objects.get(codename='view_pioneiros'))
+        CongUser.objects.create(user=usuario, cong=self.cong)
+        publicador_outra = Publicadores.objects.create(
+            nome='Publicador Outra',
+            endereco='Endereço',
+            esperanca=0,
+            privilegio=0,
+            tipo=0,
+            sexo=0,
+            situacao=1,
+            classe='0',
+            cong=self.outra_cong,
+        )
+        pioneiro_outra = Pioneiros.objects.create(
+            publicador=publicador_outra,
+            mes=datetime.date(2026, 5, 1),
+            observacao='Outra',
+            create_user=self.user,
+            assign_user=self.user,
+        )
+
+        self.client.login(username='usuario_pioneiros', password='senha')
+        response = self.client.get(reverse('register:peticao_pioneiro_auxiliar', args=[pioneiro_outra.id]))
+
+        self.assertEqual(response.status_code, 404)

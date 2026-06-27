@@ -76,6 +76,9 @@
                         {% if perms.register.view_grupos %}
                         <a class="collapse-item" href="/grupos/list/">Grupos de Serviço</a>
                         {% endif %}
+                        {% if perms.register.view_comissaoservico %}
+                        <a class="collapse-item" href="/comissao-servico/list/">Comissão de Serviço</a>
+                        {% endif %}
                         {% if perms.register.view_publicadores %}
                         <a class="collapse-item" href="/publicadores/list/">Publicadores</a>
                         {% endif %}

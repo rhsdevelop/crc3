@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <a href="#collapseCardExample" class="d-block card-header py-3" data-toggle="collapse"
+      role="button" aria-expanded="true" aria-controls="collapseCardExample">
+      <h6 class="m-0 font-weight-bold text-primary">Filtro</h6>
+  </a>
+  <div class="collapse hide" id="collapseCardExample">
+      <div class="card-body">
+        <form action="." method="get">
+          <div class="row">
+            <div class="col-lg-3">
+              {% bootstrap_field form.cong %}
+            </div>
+          </div>
+          <div class="col-lg-12">
+            <button class="btn btn-primary" type="submit">Buscar</button>
+          </div>
+        </form>
+      </div>
+  </div>
+</div>
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Dados selecionados</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped" id="dataTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th scope="col">Congregação</th>
+            <th scope="col">Coordenador</th>
+            <th scope="col">Superintendente de Serviço</th>
+            <th scope="col">Secretário</th>
+            <th scope="col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for comissao in list_comissao_servico %}
+          <tr>
+            <td>{{ comissao.cong }}</td>
+            <td>{{ comissao.coordenador|default_if_none:'' }}</td>
+            <td>{{ comissao.superintendente_servico|default_if_none:'' }}</td>
+            <td>{{ comissao.secretario|default_if_none:'' }}</td>
+            <td>{% if perms.register.change_comissaoservico %}<a href="/comissao-servico/{{ comissao.id }}/edit/" class="btn btn-info"><span class="fas fa-pen"></span></a>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script src="/static/sb/js/demo/datatables-demo.js"></script>
+{% endblock %}

@@ -1,7 +1,7 @@
 import csv
 import datetime
 import json
-from io import StringIO
+from io import BytesIO, StringIO
 
 from django import forms
 from django.contrib import messages
@@ -9,14 +9,16 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.models import User
 from django.http import Http404, HttpResponse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
 
 from .forms import (AddCongForm, FindCongForm, AddGruposForm, FindGruposForm,
                     AddCongUserForm, FindCongUserForm,
+                    AddComissaoServicoForm, FindComissaoServicoForm,
                     AddPublicadoresForm, FindPublicadoresForm, AddPioneirosForm,
                     FindPioneirosForm, AddProfileForm)
-from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
+from .helpers import gerar_peticao_pioneiro_auxiliar
+from .models import ComissaoServico, Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
 from .schedule import atualiza_pioneiros
 
 # Create your views here.
@@ -369,6 +371,84 @@ def list_grupos(request):
     return HttpResponse(template.render(context, request))
 
 
+def get_congregacao_usuario(request):
+    crc_user = CongUser.objects.filter(user=request.user).first()
+    if not crc_user:
+        messages.warning(request, 'Seu usuário não está vinculado a nenhuma congregação.')
+        return None
+    return crc_user.cong
+
+
+@login_required
+@permission_required('register.view_comissaoservico')
+def list_comissao_servico(request):
+    form = FindComissaoServicoForm(request.GET)
+    form.fields['cong'].required = False
+    filter_search = {}
+    congs = Cong.objects.all().order_by('nome')
+    if not request.user.is_staff:
+        cong = get_congregacao_usuario(request)
+        if not cong:
+            return redirect('/')
+        filter_search['cong_id'] = cong.id
+        form.fields['cong'].widget = forms.HiddenInput()
+        congs = Cong.objects.filter(id=cong.id)
+    elif request.GET.get('cong'):
+        filter_search['cong_id'] = request.GET['cong']
+        congs = Cong.objects.filter(id=request.GET['cong'])
+
+    for cong in congs:
+        ComissaoServico.objects.get_or_create(
+            cong=cong,
+            defaults={'create_user': request.user, 'assign_user': request.user},
+        )
+
+    list_comissao = ComissaoServico.objects.filter(**filter_search).select_related('cong').order_by('cong__nome')
+    template = loader.get_template('comissao_servico/list.html')
+    context = {
+        'title': 'Comissão de Serviço',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'list_comissao_servico': list_comissao,
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
+
+
+@login_required
+@permission_required('register.change_comissaoservico')
+def edit_comissao_servico(request, comissao_servico_id):
+    if not request.user.is_staff:
+        cong = get_congregacao_usuario(request)
+        if not cong:
+            return redirect('/')
+        comissao = get_object_or_404(ComissaoServico, id=comissao_servico_id, cong_id=cong.id)
+    else:
+        comissao = get_object_or_404(ComissaoServico, id=comissao_servico_id)
+
+    if request.POST:
+        form = AddComissaoServicoForm(request.POST, instance=comissao)
+        if not request.user.is_staff:
+            form.fields['cong'].widget = forms.HiddenInput()
+        item = form.save(commit=False)
+        item.assign_user = request.user
+        if not request.user.is_staff:
+            item.cong = cong
+        item.save()
+        messages.success(request, 'Registro alterado com sucesso.')
+        return redirect('/comissao-servico/list/')
+
+    form = AddComissaoServicoForm(instance=comissao)
+    if not request.user.is_staff:
+        form.fields['cong'].widget = forms.HiddenInput()
+    template = loader.get_template('comissao_servico/edit.html')
+    context = {
+        'title': 'Comissão de Serviço',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'form': form,
+    }
+    return HttpResponse(template.render(context, request))
+
+
 @login_required
 @permission_required('register.add_publicadores')
 def add_publicadores(request):
@@ -621,6 +701,32 @@ def delete_pioneiros(request, pioneiros_id):
     pioneiros.delete()
     messages.success(request, 'Registro removido com sucesso.')
     return redirect(get_pioneiros_return_url(request))
+
+
+@login_required
+@permission_required('register.view_pioneiros')
+def peticao_pioneiro_auxiliar(request, pioneiros_id):
+    if not request.user.is_staff:
+        cong = get_congregacao_usuario(request)
+        if not cong:
+            return redirect('/')
+        pioneiro = get_object_or_404(
+            Pioneiros.objects.select_related('publicador', 'publicador__cong'),
+            id=pioneiros_id,
+            publicador__cong_id=cong.id,
+        )
+    else:
+        pioneiro = get_object_or_404(
+            Pioneiros.objects.select_related('publicador', 'publicador__cong'),
+            id=pioneiros_id,
+        )
+
+    comissao = ComissaoServico.objects.filter(cong=pioneiro.publicador.cong).first()
+    arquivo = BytesIO()
+    gerar_peticao_pioneiro_auxiliar(arquivo, pioneiro, comissao)
+    response = HttpResponse(arquivo.getvalue(), content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename=peticao-pioneiro-auxiliar-%s.pdf' % pioneiro.id
+    return response
 
 
 @login_required

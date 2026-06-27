@@ -58,7 +58,16 @@
             <td>{{ pioneiros.observacao }}</td>
             <td>{{ pioneiros.create_user }}</td>
             <td>{{ pioneiros.created }}</td>
-            <td>{% if perms.register.delete_pioneiros %}<a href="/pioneiros/{{ pioneiros.id }}/delete/?next={{ current_url|urlencode }}" ><button class="btn btn-warning"><span class="fas fa-trash"></span></button></a>{% endif %}</td>
+            <td>
+              <a href="/pioneiros/{{ pioneiros.id }}/peticao/" target="_blank" class="btn btn-info" title="Imprimir petição">
+                <span class="fas fa-print"></span>
+              </a>
+              {% if perms.register.delete_pioneiros %}
+              <a href="/pioneiros/{{ pioneiros.id }}/delete/?next={{ current_url|urlencode }}" class="btn btn-warning" title="Remover petição">
+                <span class="fas fa-trash"></span>
+              </a>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>

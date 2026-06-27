@@ -1,5 +1,5 @@
 from django import forms
-from .models import Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
+from .models import ComissaoServico, Cong, CongUser, Drive, Grupos, Publicadores, Pioneiros
 
 
 class AddCongForm(forms.ModelForm):
@@ -36,6 +36,18 @@ class FindGruposForm(forms.ModelForm):
     class Meta:
         model = Grupos
         exclude = ['id', 'create_user', 'created', 'assign_user', 'modified']
+
+
+class AddComissaoServicoForm(forms.ModelForm):
+    class Meta:
+        model = ComissaoServico
+        exclude = ['id', 'create_user', 'created', 'assign_user', 'modified']
+
+
+class FindComissaoServicoForm(forms.ModelForm):
+    class Meta:
+        model = ComissaoServico
+        fields = ['cong']
 
 
 class AddPioneirosForm(forms.ModelForm):
