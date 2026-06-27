@@ -9,6 +9,7 @@ S205_PAGE_WIDTH = 842
 S205_PAGE_HEIGHT = 595
 S205_IMAGE_WIDTH = 2480
 S205_IMAGE_HEIGHT = 1754
+OBSERVACOES_SERVICO_CONTINUO = ['tempo indeterminado', 'continuamente']
 
 
 def _x(pixel):
@@ -47,7 +48,9 @@ def gerar_peticao_pioneiro_auxiliar(arquivo, pioneiro, comissao=None, data_petic
     icanvas.setFillColorRGB(0, 0, 0)
 
     mes_servico = pioneiro.mes.strftime('%m/%Y')
-    if pioneiro.observacao:
+    observacao = (pioneiro.observacao or '').strip()
+    servico_continuo = getattr(pioneiro, 'tempo_indeterminado', False) or observacao.lower() in OBSERVACOES_SERVICO_CONTINUO
+    if observacao and not servico_continuo:
         mes_servico = '%s     %s' % (mes_servico, pioneiro.observacao)
 
     _draw_fit_text(
@@ -58,6 +61,9 @@ def gerar_peticao_pioneiro_auxiliar(arquivo, pioneiro, comissao=None, data_petic
         _x(1760),
         size=14,
     )
+    if servico_continuo:
+        _draw_fit_text(icanvas, 'X', _x(221), _y(565), _x(40), font='Times-Bold', size=16, centered=True)
+
     _draw_fit_text(
         icanvas,
         data_peticao.strftime('%d/%m/%Y'),

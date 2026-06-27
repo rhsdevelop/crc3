@@ -55,7 +55,7 @@
           <tr>
             <th scope="row">{{ pioneiros.publicador }}</th>
             <td><span hidden>{{ pioneiros.mes|date:'Ym' }}</span>{{ pioneiros.mes|date:'m-Y' }}</td>
-            <td>{{ pioneiros.observacao }}</td>
+            <td>{% if pioneiros.tempo_indeterminado %}Tempo Indeterminado{% else %}{{ pioneiros.observacao }}{% endif %}</td>
             <td>{{ pioneiros.create_user }}</td>
             <td>{{ pioneiros.created }}</td>
             <td>

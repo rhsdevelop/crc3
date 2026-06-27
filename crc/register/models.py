@@ -145,6 +145,7 @@ class Pioneiros(models.Model):
     publicador = models.ForeignKey(Publicadores, db_column='Publicador', on_delete=models.PROTECT, blank=True, null=True)
     mes = models.DateField(db_column='Mes')
     observacao = models.TextField(db_column='Observacao', blank=True, null=True)
+    tempo_indeterminado = models.BooleanField(db_column='Tempo_Indeterminado', verbose_name='Tempo Indeterminado', default=False)
     create_user = models.ForeignKey(User, db_column='User_Create', on_delete=models.PROTECT, related_name='pioneiro_user_create', blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
     assign_user = models.ForeignKey(User, db_column='User_Modify', on_delete=models.PROTECT, related_name='pioneiro_user_assign', blank=True, null=True)

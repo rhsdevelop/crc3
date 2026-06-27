@@ -616,6 +616,7 @@ def add_pioneiros(request):
             'publicador_id': request_post['publicador'],
             'mes': request_post['mes'] + '-01',
             'observacao': request_post['observacao'],
+            'tempo_indeterminado': request_post.get('tempo_indeterminado') == 'on',
             'create_user_id': request.user.id,
             'assign_user_id': request.user.id,
         }

@@ -8,7 +8,7 @@ def atualiza_pioneiros():
     pioneiros_vinculados = [x.publicador_id for x in pio]
     pub = Publicadores.objects.filter(tipo=1).exclude(id__in=pioneiros_vinculados)
     for i in pub:
-        Pioneiros.objects.create(publicador_id=i.id, mes=datetime.date.today().replace(day=1), observacao='Tempo Indeterminado', create_user_id=1, assign_user_id=1)
+        Pioneiros.objects.create(publicador_id=i.id, mes=datetime.date.today().replace(day=1), tempo_indeterminado=True, create_user_id=1, assign_user_id=1)
 
 if __name__=='__main__':
     atualiza_pioneiros()

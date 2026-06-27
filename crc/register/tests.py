@@ -8,6 +8,7 @@ from django.urls import reverse
 
 from activities.models import Relatorios
 from .models import ComissaoServico, Cong, CongUser, Pioneiros, Publicadores
+from .schedule import atualiza_pioneiros
 
 
 class CongUserListTests(TestCase):
@@ -202,6 +203,7 @@ class PioneirosReturnUrlTests(TestCase):
         response = self.client.get(reverse('register:add_pioneiros'), {'next': next_url})
 
         self.assertContains(response, '<input type="hidden" name="next" value="%s">' % next_url, html=True)
+        self.assertContains(response, 'Tempo Indeterminado')
 
     def test_add_pioneiro_redireciona_para_next_interno_com_filtros(self):
         next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
@@ -209,10 +211,14 @@ class PioneirosReturnUrlTests(TestCase):
             'publicador': self.publicador.id,
             'mes': '2026-06',
             'observacao': 'Novo',
+            'tempo_indeterminado': 'on',
             'next': next_url,
         })
 
         self.assertRedirects(response, next_url, fetch_redirect_response=False)
+        pioneiro = Pioneiros.objects.get(publicador=self.publicador, mes=datetime.date(2026, 6, 1))
+        self.assertEqual(pioneiro.observacao, 'Novo')
+        self.assertTrue(pioneiro.tempo_indeterminado)
 
     def test_delete_pioneiro_redireciona_para_next_interno_com_filtros(self):
         next_url = '/pioneiros/list/?publicador=%s&mes=2026-05&foo=bar' % self.publicador.id
@@ -260,6 +266,42 @@ class PioneirosReturnUrlTests(TestCase):
 
         self.assertEqual(response['Content-Type'], 'application/pdf')
         self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_pdf_da_peticao_marca_servico_continuo_sem_observacao_no_mes(self):
+        for observacao in ['Tempo Indeterminado', 'Continuamente']:
+            self.pioneiro.observacao = observacao
+            self.pioneiro.tempo_indeterminado = False
+            self.pioneiro.save()
+
+            response = self.client.get(reverse('register:peticao_pioneiro_auxiliar', args=[self.pioneiro.id]))
+
+            self.assertIn(b'05/2026', response.content)
+            self.assertNotIn(observacao.encode('utf-8'), response.content)
+            self.assertIn(b'X', response.content)
+
+    def test_pdf_da_peticao_marca_servico_continuo_pelo_booleano(self):
+        self.pioneiro.observacao = ''
+        self.pioneiro.tempo_indeterminado = True
+        self.pioneiro.save()
+
+        response = self.client.get(reverse('register:peticao_pioneiro_auxiliar', args=[self.pioneiro.id]))
+
+        self.assertIn(b'05/2026', response.content)
+        self.assertIn(b'X', response.content)
+        self.assertNotIn(b'Tempo Indeterminado', response.content)
+
+    def test_rotina_de_publicador_pioneiro_auxiliar_marca_tempo_indeterminado(self):
+        self.publicador.tipo = 1
+        self.publicador.save()
+
+        atualiza_pioneiros()
+
+        pioneiro = Pioneiros.objects.get(
+            publicador=self.publicador,
+            mes=datetime.date.today().replace(day=1),
+        )
+        self.assertTrue(pioneiro.tempo_indeterminado)
+        self.assertIsNone(pioneiro.observacao)
 
     def test_usuario_comum_nao_imprime_peticao_de_outra_congregacao(self):
         usuario = User.objects.create_user(username='usuario_pioneiros', password='senha')
