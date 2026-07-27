@@ -23,6 +23,7 @@ urlpatterns = [
     path('activities/', include('activities.urls')),
     path('meetings/', include('meetings.urls')),
     path('agenda/', include('agenda.urls')),
+    path('ss/', include('ss_activities.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),
 ]

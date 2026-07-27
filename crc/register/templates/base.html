@@ -145,6 +145,21 @@
                 </div>
             </li>
             {% endif %}
+            {% if perms.ss_activities.manage_visitas_grupos %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAtividadesSs"
+                    aria-expanded="true" aria-controls="collapseAtividadesSs">
+                    <i class="fas fa-fw fa-calendar-check"></i>
+                    <span>Atividades SS</span>
+                </a>
+                <div id="collapseAtividadesSs" class="collapse" aria-labelledby="headingAtividadesSs" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Programação:</h6>
+                        <a class="collapse-item" href="{% url 'ss_activities:list_visitas_grupos' %}">Visita aos Grupos</a>
+                    </div>
+                </div>
+            </li>
+            {% endif %}
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 

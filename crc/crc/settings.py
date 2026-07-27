@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'activities.apps.ActivitiesConfig',
     'meetings.apps.MeetingsConfig',
     'agenda.apps.AgendaConfig',
+    'ss_activities.apps.SsActivitiesConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

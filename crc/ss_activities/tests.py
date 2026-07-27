@@ -1,0 +1,293 @@
+import datetime
+
+from django.contrib.auth.models import Permission, User
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.test import TestCase
+from django.urls import reverse
+
+from register.models import Cong, CongUser, Grupos
+
+from .forms import limites_ano_servico
+from .models import VisitaGrupo
+from .views import ano_servico_atual
+
+
+class VisitaGrupoTests(TestCase):
+    def setUp(self):
+        self.cong_a = Cong.objects.create(nome='Congregação A', numero=1)
+        self.cong_b = Cong.objects.create(nome='Congregação B', numero=2)
+        self.grupo_a1 = Grupos.objects.create(
+            grupo='Grupo A1',
+            dirigente='Dirigente A1',
+            cong=self.cong_a,
+        )
+        self.grupo_a2 = Grupos.objects.create(
+            grupo='Grupo A2',
+            dirigente='Dirigente A2',
+            cong=self.cong_a,
+        )
+        self.grupo_b1 = Grupos.objects.create(
+            grupo='Grupo B1',
+            dirigente='Dirigente B1',
+            cong=self.cong_b,
+        )
+        self.usuario_a = User.objects.create_user(username='ss_a', password='senha')
+        self.usuario_b = User.objects.create_user(username='ss_b', password='senha')
+        self.sem_permissao = User.objects.create_user(username='publicador', password='senha')
+        self.superuser = User.objects.create_superuser(username='admin_ss', password='senha')
+        CongUser.objects.create(cong=self.cong_a, user=self.usuario_a)
+        CongUser.objects.create(cong=self.cong_b, user=self.usuario_b)
+        CongUser.objects.create(cong=self.cong_a, user=self.sem_permissao)
+        permissao = Permission.objects.get(
+            content_type__app_label='ss_activities',
+            codename='manage_visitas_grupos',
+        )
+        self.usuario_a.user_permissions.add(permissao)
+        self.usuario_b.user_permissions.add(permissao)
+        self.list_url = reverse('ss_activities:list_visitas_grupos')
+        self.add_url = reverse('ss_activities:add_visita_grupo')
+
+    def criar_visita(self, grupo, data_inicio, **kwargs):
+        dados = {
+            'cong': grupo.cong,
+            'grupo': grupo,
+            'data_inicio': data_inicio,
+            'data_fim': data_inicio + datetime.timedelta(days=6),
+        }
+        dados.update(kwargs)
+        return VisitaGrupo.objects.create(**dados)
+
+    def post_visita(self, grupo, data_inicio, **kwargs):
+        dados = {
+            'grupo': grupo.id,
+            'data_inicio': data_inicio.isoformat(),
+            'ano': 2026,
+        }
+        dados.update(kwargs)
+        return self.client.post(self.add_url, dados)
+
+    def test_permissao_controla_rotas_e_menu(self):
+        self.client.force_login(self.sem_permissao)
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.get('/')
+        self.assertNotContains(response, 'Atividades SS')
+
+        self.client.force_login(self.usuario_a)
+        response = self.client.get('/')
+        self.assertContains(response, 'Atividades SS')
+        self.assertContains(response, 'Visita aos Grupos')
+
+    def test_criacao_calcula_domingo_e_registra_auditoria(self):
+        self.client.force_login(self.usuario_a)
+        segunda = datetime.date(2026, 9, 7)
+
+        response = self.post_visita(self.grupo_a1, segunda)
+
+        self.assertRedirects(
+            response,
+            '/ss/visitas-grupos/?ano=2026&cong=%s' % self.cong_a.id,
+            fetch_redirect_response=False,
+        )
+        visita = VisitaGrupo.objects.get()
+        self.assertEqual(visita.cong, self.cong_a)
+        self.assertEqual(visita.data_fim, datetime.date(2026, 9, 13))
+        self.assertEqual(visita.create_user, self.usuario_a)
+        self.assertEqual(visita.assign_user, self.usuario_a)
+        self.assertFalse(visita.confirmada)
+        self.assertFalse(visita.executada)
+
+    def test_data_que_nao_e_segunda_feira_e_recusada_e_modal_reabre(self):
+        self.client.force_login(self.usuario_a)
+
+        response = self.post_visita(self.grupo_a1, datetime.date(2026, 9, 8))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'A visita deve começar em uma segunda-feira.')
+        self.assertContains(response, "$('#visitaModal').modal('show')")
+        self.assertEqual(VisitaGrupo.objects.count(), 0)
+
+    def test_modelo_tambem_recusa_inicio_fora_da_segunda_feira(self):
+        visita = VisitaGrupo(
+            cong=self.cong_a,
+            grupo=self.grupo_a1,
+            data_inicio=datetime.date(2026, 9, 8),
+            data_fim=datetime.date(2026, 9, 14),
+        )
+
+        with self.assertRaises(ValidationError):
+            visita.save()
+
+    def test_mesma_semana_na_congregacao_e_bloqueada_com_mensagem(self):
+        self.client.force_login(self.usuario_a)
+        segunda = datetime.date(2026, 9, 7)
+        self.post_visita(self.grupo_a1, segunda)
+
+        response = self.post_visita(self.grupo_a2, segunda)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'Já existe uma visita programada para esta congregação nessa semana.',
+        )
+        self.assertEqual(VisitaGrupo.objects.count(), 1)
+
+    def test_restricao_do_banco_protege_contra_duplicidade_concorrente(self):
+        segunda = datetime.date(2026, 9, 7)
+        self.criar_visita(self.grupo_a1, segunda)
+        duplicada = VisitaGrupo(
+            cong=self.cong_a,
+            grupo=self.grupo_a2,
+            data_inicio=segunda,
+            data_fim=segunda + datetime.timedelta(days=6),
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                VisitaGrupo.objects.bulk_create([duplicada])
+
+    def test_congregacoes_diferentes_podem_usar_a_mesma_semana(self):
+        segunda = datetime.date(2026, 9, 7)
+        self.client.force_login(self.usuario_a)
+        self.post_visita(self.grupo_a1, segunda)
+        self.client.force_login(self.usuario_b)
+
+        response = self.post_visita(self.grupo_b1, segunda)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(VisitaGrupo.objects.count(), 2)
+
+    def test_mesmo_grupo_pode_receber_visitas_em_semanas_diferentes(self):
+        self.client.force_login(self.usuario_a)
+
+        self.post_visita(self.grupo_a1, datetime.date(2026, 9, 7))
+        response = self.post_visita(self.grupo_a1, datetime.date(2026, 9, 14))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(VisitaGrupo.objects.filter(grupo=self.grupo_a1).count(), 2)
+
+    def test_executada_confirma_visita_automaticamente(self):
+        self.client.force_login(self.usuario_a)
+
+        self.post_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+            executada='on',
+        )
+
+        visita = VisitaGrupo.objects.get()
+        self.assertTrue(visita.executada)
+        self.assertTrue(visita.confirmada)
+
+    def test_listagem_e_cobertura_respeitam_congregacao_e_ano_servico(self):
+        visita_ano_anterior = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 8, 31),
+        )
+        visita_atual = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+            confirmada=True,
+        )
+        self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(self.list_url, {'ano': 2026})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(visita_atual, response.context['visitas'])
+        self.assertNotIn(visita_ano_anterior, response.context['visitas'])
+        self.assertNotContains(response, 'Grupo B1')
+        self.assertEqual(list(response.context['grupos_sem_visita']), [self.grupo_a2])
+        self.assertEqual(response.context['total_programados'], 1)
+        self.assertEqual(response.context['total_confirmados'], 1)
+        self.assertEqual(response.context['total_executados'], 0)
+
+    def test_edicao_preserva_criador_e_atualiza_responsavel(self):
+        criador = User.objects.create_user(username='criador', password='senha')
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+            create_user=criador,
+            assign_user=criador,
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:edit_visita_grupo', args=[visita.id]),
+            {
+                'grupo': self.grupo_a2.id,
+                'data_inicio': '2026-09-14',
+                'confirmada': 'on',
+                'ano': 2026,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        visita.refresh_from_db()
+        self.assertEqual(visita.grupo, self.grupo_a2)
+        self.assertEqual(visita.data_inicio, datetime.date(2026, 9, 14))
+        self.assertEqual(visita.data_fim, datetime.date(2026, 9, 20))
+        self.assertEqual(visita.create_user, criador)
+        self.assertEqual(visita.assign_user, self.usuario_a)
+        self.assertTrue(visita.confirmada)
+
+    def test_usuario_nao_edita_visita_de_outra_congregacao(self):
+        visita = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:edit_visita_grupo', args=[visita.id]),
+            {
+                'grupo': self.grupo_a1.id,
+                'data_inicio': '2026-09-14',
+                'ano': 2026,
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_grupo_de_outra_congregacao_nao_pode_ser_enviado(self):
+        self.client.force_login(self.usuario_a)
+
+        response = self.post_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('grupo', response.context['form'].errors)
+        self.assertEqual(VisitaGrupo.objects.count(), 0)
+
+    def test_superusuario_seleciona_congregacao_e_popup_limita_grupos(self):
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(self.list_url)
+        self.assertContains(
+            response,
+            'Selecione uma congregação para visualizar e programar visitas.',
+        )
+
+        response = self.client.get(
+            self.list_url,
+            {'ano': 2026, 'cong': self.cong_a.id},
+        )
+        self.assertContains(response, 'Grupo A1')
+        self.assertContains(response, 'Grupo A2')
+        self.assertNotContains(response, 'Grupo B1')
+
+    def test_helpers_definem_ano_de_servico_de_setembro_a_agosto(self):
+        self.assertEqual(
+            limites_ano_servico(2026),
+            (datetime.date(2026, 9, 1), datetime.date(2027, 8, 31)),
+        )
+        self.assertEqual(ano_servico_atual(datetime.date(2026, 8, 31)), 2025)
+        self.assertEqual(ano_servico_atual(datetime.date(2026, 9, 1)), 2026)

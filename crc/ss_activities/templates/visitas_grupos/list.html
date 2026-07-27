@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Período da programação</h6>
+  </div>
+  <div class="card-body">
+    <form action="." method="get">
+      <div class="form-row align-items-end">
+        {% if request.user.is_superuser %}
+        <div class="col-lg-5">
+          <label for="id_cong">Congregação</label>
+          <select id="id_cong" name="cong" class="form-control" required>
+            <option value="">Selecione</option>
+            {% for cong in list_cong %}
+            <option value="{{ cong.id }}"{% if selected_cong.id == cong.id %} selected{% endif %}>{{ cong }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="col-lg-3">
+          <label for="id_ano">Ano de serviço</label>
+          <select id="id_ano" name="ano" class="form-control">
+            {% for opcao in anos %}
+            <option value="{{ opcao }}"{% if opcao == ano %} selected{% endif %}>{{ opcao }}/{{ opcao|add:'1' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-2">
+          <button class="btn btn-primary" type="submit">Exibir</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_cong %}
+<div class="row mb-4">
+  <div class="col-xl-3 col-md-6 mb-2">
+    <div class="card border-left-primary shadow h-100 py-2">
+      <div class="card-body py-2">
+        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Grupos</div>
+        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_grupos }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-2">
+    <div class="card border-left-info shadow h-100 py-2">
+      <div class="card-body py-2">
+        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Programados</div>
+        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_programados }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-2">
+    <div class="card border-left-warning shadow h-100 py-2">
+      <div class="card-body py-2">
+        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Confirmados</div>
+        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_confirmados }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-2">
+    <div class="card border-left-success shadow h-100 py-2">
+      <div class="card-body py-2">
+        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Executados</div>
+        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_executados }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mb-3">
+  <button
+    class="btn btn-info"
+    id="addVisitaButton"
+    type="button"
+    data-toggle="modal"
+    data-target="#visitaModal"
+    data-url="{% url 'ss_activities:add_visita_grupo' %}"
+  >
+    <span class="fas fa-plus"></span> Programar visita
+  </button>
+</div>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">
+      Visitas de {{ periodo_inicio|date:'d/m/Y' }} a {{ periodo_fim|date:'d/m/Y' }}
+    </h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="visitasTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Grupo</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Confirmada</th>
+            <th>Executada</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for visita in visitas %}
+          <tr>
+            <td>{{ visita.grupo }}</td>
+            <td><span hidden>{{ visita.data_inicio|date:'Ymd' }}</span>{{ visita.data_inicio|date:'d/m/Y' }}</td>
+            <td>{{ visita.data_fim|date:'d/m/Y' }}</td>
+            <td>
+              {% if visita.confirmada %}
+              <span class="badge badge-success">Sim</span>
+              {% else %}
+              <span class="badge badge-secondary">Não</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if visita.executada %}
+              <span class="badge badge-success">Sim</span>
+              {% else %}
+              <span class="badge badge-secondary">Não</span>
+              {% endif %}
+            </td>
+            <td>
+              <button
+                class="btn btn-info btn-sm edit-visita"
+                type="button"
+                data-toggle="modal"
+                data-target="#visitaModal"
+                data-url="{% url 'ss_activities:edit_visita_grupo' visita.id %}"
+                data-grupo="{{ visita.grupo_id }}"
+                data-inicio="{{ visita.data_inicio|date:'Y-m-d' }}"
+                data-fim="{{ visita.data_fim|date:'Y-m-d' }}"
+                data-confirmada="{{ visita.confirmada|yesno:'true,false' }}"
+                data-executada="{{ visita.executada|yesno:'true,false' }}"
+              >
+                <span class="fas fa-pen"></span>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-center">Nenhuma visita programada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Grupos sem visita programada</h6>
+  </div>
+  <div class="card-body">
+    {% for grupo in grupos_sem_visita %}
+    <span class="badge badge-warning p-2 mb-1">{{ grupo }}</span>
+    {% empty %}
+    <span class="text-success"><span class="fas fa-check"></span> Todos os grupos possuem visita programada.</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal fade" id="visitaModal" tabindex="-1" role="dialog" aria-labelledby="visitaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form
+        id="visitaForm"
+        method="post"
+        action="{% if modal_mode == 'edit' %}{% url 'ss_activities:edit_visita_grupo' visita_edicao.id %}{% else %}{% url 'ss_activities:add_visita_grupo' %}{% endif %}"
+      >
+        {% csrf_token %}
+        <input type="hidden" name="ano" value="{{ ano }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="visitaModalLabel">{% if modal_mode == 'edit' %}Editar visita{% else %}Programar visita{% endif %}</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          {% bootstrap_field form.grupo %}
+          {% bootstrap_field form.data_inicio %}
+          <div class="form-group">
+            <label for="id_data_fim_preview">Fim (domingo)</label>
+            <input
+              class="form-control"
+              id="id_data_fim_preview"
+              type="date"
+              value="{% if visita_edicao %}{{ visita_edicao.data_fim|date:'Y-m-d' }}{% endif %}"
+              readonly
+            >
+          </div>
+          {% bootstrap_field form.confirmada %}
+          {% bootstrap_field form.executada %}
+          {% for error in form.non_field_errors %}
+          <div class="alert alert-danger">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% elif request.user.is_superuser %}
+<div class="alert alert-info">Selecione uma congregação para visualizar e programar visitas.</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script type="text/javascript">
+  $(document).ready(function () {
+    {% if visitas %}
+    $('#visitasTable').DataTable({
+      pageLength: 25,
+      order: [[1, 'asc']],
+      language: {
+        emptyTable: 'Nenhuma visita programada.'
+      }
+    });
+    {% endif %}
+
+    function calcularFim() {
+      var valor = $('#id_data_inicio').val();
+      if (!valor) {
+        $('#id_data_fim_preview').val('');
+        return;
+      }
+      var partes = valor.split('-');
+      var data = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+      if (data.getDay() !== 1) {
+        $('#id_data_fim_preview').val('');
+        return;
+      }
+      data.setDate(data.getDate() + 6);
+      var ano = data.getFullYear();
+      var mes = String(data.getMonth() + 1).padStart(2, '0');
+      var dia = String(data.getDate()).padStart(2, '0');
+      $('#id_data_fim_preview').val(ano + '-' + mes + '-' + dia);
+    }
+
+    $('#id_data_inicio').on('change', calcularFim);
+    $('#id_executada').on('change', function () {
+      if ($(this).is(':checked')) {
+        $('#id_confirmada').prop('checked', true);
+      }
+    });
+    $('#id_confirmada').on('change', function () {
+      if ($('#id_executada').is(':checked')) {
+        $(this).prop('checked', true);
+      }
+    });
+
+    $('#addVisitaButton').on('click', function () {
+      $('#visitaModalLabel').text('Programar visita');
+      $('#visitaForm').attr('action', $(this).data('url'));
+      $('#id_grupo').val('');
+      $('#id_data_inicio').val('');
+      $('#id_data_fim_preview').val('');
+      $('#id_confirmada').prop('checked', false);
+      $('#id_executada').prop('checked', false);
+      $('.invalid-feedback').remove();
+      $('.is-invalid').removeClass('is-invalid');
+    });
+
+    $('.edit-visita').on('click', function () {
+      $('#visitaModalLabel').text('Editar visita');
+      $('#visitaForm').attr('action', $(this).data('url'));
+      $('#id_grupo').val(String($(this).data('grupo')));
+      $('#id_data_inicio').val($(this).data('inicio'));
+      $('#id_data_fim_preview').val($(this).data('fim'));
+      $('#id_confirmada').prop('checked', $(this).data('confirmada') === true);
+      $('#id_executada').prop('checked', $(this).data('executada') === true);
+    });
+
+    calcularFim();
+    {% if modal_open %}
+    $('#visitaModal').modal('show');
+    {% endif %}
+  });
+</script>
+{% endblock %}
