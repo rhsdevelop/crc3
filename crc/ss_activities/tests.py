@@ -692,6 +692,143 @@ class VisitaGrupoTests(TestCase):
         self.assertIn('publicador', response.context['form'].errors)
         self.assertEqual(VisitaPastoreio.objects.count(), 1)
 
+    def test_confirma_pastoreio_com_auditoria(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        pastoreio = self.criar_pastoreio(visita)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse(
+                'ss_activities:confirm_visita_pastoreio',
+                args=[visita.id, pastoreio.id],
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            '/ss/visitas-grupos/%s/pastoreio/' % visita.id,
+            fetch_redirect_response=False,
+        )
+        pastoreio.refresh_from_db()
+        self.assertTrue(pastoreio.confirmado)
+        self.assertEqual(pastoreio.assign_user, self.usuario_a)
+
+    def test_confirmacao_de_pastoreio_e_idempotente(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        pastoreio = self.criar_pastoreio(
+            visita,
+            confirmado=True,
+            assign_user=self.usuario_b,
+        )
+        modified = pastoreio.modified
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse(
+                'ss_activities:confirm_visita_pastoreio',
+                args=[visita.id, pastoreio.id],
+            ),
+            follow=True,
+        )
+
+        self.assertContains(
+            response,
+            'A visita de pastoreio já estava confirmada.',
+        )
+        pastoreio.refresh_from_db()
+        self.assertTrue(pastoreio.confirmado)
+        self.assertEqual(pastoreio.assign_user, self.usuario_b)
+        self.assertEqual(pastoreio.modified, modified)
+
+    def test_tela_pastoreio_oferece_confirmacao_so_para_nao_confirmado(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        nao_confirmado = self.criar_pastoreio(visita)
+        confirmado = self.criar_pastoreio(
+            visita,
+            publicador=self.publicador_inativo_a1,
+            confirmado=True,
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            reverse('ss_activities:list_visitas_pastoreio', args=[visita.id])
+        )
+
+        self.assertContains(response, 'id="confirmPastoreioModal"')
+        self.assertContains(response, str(nao_confirmado.publicador))
+        self.assertContains(response, nao_confirmado.data.strftime('%d/%m/%Y'))
+        self.assertContains(
+            response,
+            reverse(
+                'ss_activities:confirm_visita_pastoreio',
+                args=[visita.id, nao_confirmado.id],
+            ),
+        )
+        self.assertNotContains(
+            response,
+            reverse(
+                'ss_activities:confirm_visita_pastoreio',
+                args=[visita.id, confirmado.id],
+            ),
+        )
+
+    def test_endpoint_confirmacao_exige_metodo_permissao_e_congregacao(self):
+        visita_a = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        visita_b = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        pastoreio_a = self.criar_pastoreio(visita_a)
+        pastoreio_b = self.criar_pastoreio(
+            visita_b,
+            publicador=self.publicador_b1,
+            acompanhante=self.anciao_b1,
+        )
+        confirm_url = reverse(
+            'ss_activities:confirm_visita_pastoreio',
+            args=[visita_a.id, pastoreio_a.id],
+        )
+
+        self.client.force_login(self.usuario_a)
+        self.assertEqual(self.client.get(confirm_url).status_code, 405)
+        self.assertEqual(
+            self.client.post(
+                reverse(
+                    'ss_activities:confirm_visita_pastoreio',
+                    args=[visita_b.id, pastoreio_b.id],
+                )
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse(
+                    'ss_activities:confirm_visita_pastoreio',
+                    args=[visita_a.id, pastoreio_b.id],
+                )
+            ).status_code,
+            404,
+        )
+
+        self.client.force_login(self.sem_permissao)
+        self.assertEqual(self.client.post(confirm_url).status_code, 403)
+        pastoreio_a.refresh_from_db()
+        pastoreio_b.refresh_from_db()
+        self.assertFalse(pastoreio_a.confirmado)
+        self.assertFalse(pastoreio_b.confirmado)
+
     def test_apaga_pastoreio_confirmado(self):
         visita = self.criar_visita(
             self.grupo_a1,

@@ -66,7 +66,18 @@
               {% if pastoreio.confirmado %}
               <span class="badge badge-success">Sim</span>
               {% else %}
-              <span class="badge badge-secondary">Não</span>
+              <button
+                class="btn btn-sm btn-outline-secondary confirm-pastoreio"
+                type="button"
+                title="Confirmar visita de pastoreio"
+                data-toggle="modal"
+                data-target="#confirmPastoreioModal"
+                data-url="{% url 'ss_activities:confirm_visita_pastoreio' visita_grupo.id pastoreio.id %}"
+                data-publicador="{{ pastoreio.publicador }}"
+                data-data="{{ pastoreio.data|date:'d/m/Y' }}"
+              >
+                Não
+              </button>
               {% endif %}
             </td>
             <td>
@@ -130,6 +141,33 @@
   </div>
 </div>
 
+<div class="modal fade" id="confirmPastoreioModal" tabindex="-1" role="dialog" aria-labelledby="confirmPastoreioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="confirmPastoreioForm" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmPastoreioModalLabel">Confirmar visita de pastoreio</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Deseja confirmar esta visita de pastoreio?</p>
+          <p class="mb-0">
+            <strong id="confirmPastoreioPublicador"></strong><br>
+            <span id="confirmPastoreioData"></span>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-success" type="submit">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="deletePastoreioModal" tabindex="-1" role="dialog" aria-labelledby="deletePastoreioModalLabel" aria-hidden="true">
   <div class="modal-dialog" role="document">
     <div class="modal-content">
@@ -179,6 +217,12 @@
       $('#id_confirmado').prop('checked', false);
       $('.invalid-feedback').remove();
       $('.is-invalid').removeClass('is-invalid');
+    });
+
+    $('.confirm-pastoreio').on('click', function () {
+      $('#confirmPastoreioForm').attr('action', $(this).data('url'));
+      $('#confirmPastoreioPublicador').text($(this).data('publicador'));
+      $('#confirmPastoreioData').text($(this).data('data'));
     });
 
     $('.delete-pastoreio').on('click', function () {

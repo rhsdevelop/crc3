@@ -32,6 +32,11 @@ urlpatterns = [
         name='add_visita_pastoreio',
     ),
     path(
+        'visitas-grupos/<int:visita_id>/pastoreio/<int:pastoreio_id>/confirmar/',
+        views.confirm_visita_pastoreio,
+        name='confirm_visita_pastoreio',
+    ),
+    path(
         'visitas-grupos/<int:visita_id>/pastoreio/<int:pastoreio_id>/apagar/',
         views.delete_visita_pastoreio,
         name='delete_visita_pastoreio',

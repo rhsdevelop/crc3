@@ -218,6 +218,45 @@ def add_visita_pastoreio(request, visita_id):
 @login_required
 @permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
 @require_POST
+def confirm_visita_pastoreio(request, visita_id, pastoreio_id):
+    with transaction.atomic():
+        visita = get_visita_grupo_acessivel(
+            request,
+            visita_id,
+            for_update=True,
+        )
+        if visita is False:
+            return redirect('/')
+        pastoreio = get_object_or_404(
+            VisitaPastoreio.objects.select_for_update(),
+            pk=pastoreio_id,
+            visita_grupo=visita,
+        )
+        if not pastoreio.confirmado:
+            pastoreio.confirmado = True
+            pastoreio.assign_user = request.user
+            pastoreio.save()
+            messages.success(
+                request,
+                'Visita de pastoreio confirmada com sucesso.',
+            )
+        else:
+            messages.info(
+                request,
+                'A visita de pastoreio já estava confirmada.',
+            )
+
+    return redirect(
+        reverse(
+            'ss_activities:list_visitas_pastoreio',
+            args=[visita.id],
+        )
+    )
+
+
+@login_required
+@permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
+@require_POST
 def delete_visita_pastoreio(request, visita_id, pastoreio_id):
     with transaction.atomic():
         visita = get_visita_grupo_acessivel(
