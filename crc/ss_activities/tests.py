@@ -6,10 +6,10 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 
-from register.models import Cong, CongUser, Grupos
+from register.models import Cong, CongUser, Grupos, Publicadores
 
 from .forms import limites_ano_servico
-from .models import VisitaGrupo
+from .models import VisitaGrupo, VisitaPastoreio
 from .views import ano_servico_atual
 
 
@@ -32,6 +32,53 @@ class VisitaGrupoTests(TestCase):
             dirigente='Dirigente B1',
             cong=self.cong_b,
         )
+        self.publicador_a1 = self.criar_publicador(
+            'Publicador A1',
+            self.grupo_a1,
+        )
+        self.publicador_inativo_a1 = self.criar_publicador(
+            'Publicador Inativo A1',
+            self.grupo_a1,
+            situacao=0,
+        )
+        self.publicador_mudou_a1 = self.criar_publicador(
+            'Publicador Mudou A1',
+            self.grupo_a1,
+            situacao=2,
+        )
+        self.publicador_a2 = self.criar_publicador(
+            'Publicador A2',
+            self.grupo_a2,
+        )
+        self.servo_a1 = self.criar_publicador(
+            'Servo A1',
+            self.grupo_a1,
+            privilegio=1,
+        )
+        self.anciao_a2 = self.criar_publicador(
+            'Ancião A2',
+            self.grupo_a2,
+            privilegio=2,
+        )
+        self.publicador_comum_a2 = self.criar_publicador(
+            'Publicador Comum A2',
+            self.grupo_a2,
+        )
+        self.anciao_inativo_a2 = self.criar_publicador(
+            'Ancião Inativo A2',
+            self.grupo_a2,
+            privilegio=2,
+            situacao=0,
+        )
+        self.anciao_b1 = self.criar_publicador(
+            'Ancião B1',
+            self.grupo_b1,
+            privilegio=2,
+        )
+        self.publicador_b1 = self.criar_publicador(
+            'Publicador B1',
+            self.grupo_b1,
+        )
         self.usuario_a = User.objects.create_user(username='ss_a', password='senha')
         self.usuario_b = User.objects.create_user(username='ss_b', password='senha')
         self.sem_permissao = User.objects.create_user(username='publicador', password='senha')
@@ -48,6 +95,26 @@ class VisitaGrupoTests(TestCase):
         self.list_url = reverse('ss_activities:list_visitas_grupos')
         self.add_url = reverse('ss_activities:add_visita_grupo')
 
+    def criar_publicador(
+        self,
+        nome,
+        grupo,
+        privilegio=0,
+        situacao=1,
+    ):
+        return Publicadores.objects.create(
+            nome=nome,
+            endereco='Endereço de teste',
+            esperanca=0,
+            privilegio=privilegio,
+            tipo=0,
+            sexo=0,
+            situacao=situacao,
+            classe='0',
+            grupo=grupo,
+            cong=grupo.cong,
+        )
+
     def criar_visita(self, grupo, data_inicio, **kwargs):
         dados = {
             'cong': grupo.cong,
@@ -57,6 +124,18 @@ class VisitaGrupoTests(TestCase):
         }
         dados.update(kwargs)
         return VisitaGrupo.objects.create(**dados)
+
+    def criar_pastoreio(self, visita, publicador=None, **kwargs):
+        dados = {
+            'visita_grupo': visita,
+            'publicador': publicador or self.publicador_a1,
+            'data': visita.data_inicio,
+            'assuntos': 'Assuntos de teste',
+            'materia': 'Matéria de teste',
+            'acompanhante': self.anciao_a2,
+        }
+        dados.update(kwargs)
+        return VisitaPastoreio.objects.create(**dados)
 
     def post_visita(self, grupo, data_inicio, **kwargs):
         dados = {
@@ -410,6 +489,339 @@ class VisitaGrupoTests(TestCase):
         self.assertContains(response, 'Grupo A1')
         self.assertContains(response, 'Grupo A2')
         self.assertNotContains(response, 'Grupo B1')
+
+    def test_tela_pastoreio_isola_visita_e_congregacao(self):
+        visita_a = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        visita_b = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        self.criar_pastoreio(visita_a, assuntos='Assunto Congregação A')
+        self.criar_pastoreio(
+            visita_b,
+            publicador=self.publicador_b1,
+            acompanhante=self.anciao_b1,
+            assuntos='Assunto Congregação B',
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            reverse('ss_activities:list_visitas_pastoreio', args=[visita_a.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Assunto Congregação A')
+        self.assertNotContains(response, 'Assunto Congregação B')
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    'ss_activities:list_visitas_pastoreio',
+                    args=[visita_b.id],
+                )
+            ).status_code,
+            404,
+        )
+
+    def test_formulario_pastoreio_filtra_publicadores_e_acompanhantes(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            reverse('ss_activities:list_visitas_pastoreio', args=[visita.id])
+        )
+        form = response.context['form']
+
+        self.assertIn(self.publicador_a1, form.fields['publicador'].queryset)
+        self.assertIn(
+            self.publicador_inativo_a1,
+            form.fields['publicador'].queryset,
+        )
+        self.assertNotIn(
+            self.publicador_mudou_a1,
+            form.fields['publicador'].queryset,
+        )
+        self.assertNotIn(self.publicador_a2, form.fields['publicador'].queryset)
+        self.assertIn(self.servo_a1, form.fields['acompanhante'].queryset)
+        self.assertIn(self.anciao_a2, form.fields['acompanhante'].queryset)
+        self.assertNotIn(
+            self.publicador_comum_a2,
+            form.fields['acompanhante'].queryset,
+        )
+        self.assertNotIn(
+            self.anciao_inativo_a2,
+            form.fields['acompanhante'].queryset,
+        )
+        self.assertNotIn(self.anciao_b1, form.fields['acompanhante'].queryset)
+        self.assertEqual(
+            form.fields['data'].widget.attrs['min'],
+            '2026-09-07',
+        )
+        self.assertEqual(
+            form.fields['data'].widget.attrs['max'],
+            '2026-09-13',
+        )
+
+    def test_adiciona_pastoreio_com_auditoria(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:add_visita_pastoreio', args=[visita.id]),
+            {
+                'publicador': self.publicador_a1.id,
+                'data': '2026-09-10',
+                'assuntos': 'Encorajamento',
+                'materia': 'Texto bíblico',
+                'acompanhante': self.anciao_a2.id,
+                'confirmado': 'on',
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            '/ss/visitas-grupos/%s/pastoreio/' % visita.id,
+            fetch_redirect_response=False,
+        )
+        pastoreio = VisitaPastoreio.objects.get()
+        self.assertEqual(pastoreio.visita_grupo, visita)
+        self.assertEqual(pastoreio.publicador, self.publicador_a1)
+        self.assertEqual(pastoreio.acompanhante, self.anciao_a2)
+        self.assertEqual(pastoreio.create_user, self.usuario_a)
+        self.assertEqual(pastoreio.assign_user, self.usuario_a)
+        self.assertTrue(pastoreio.confirmado)
+
+    def test_pastoreio_recusa_data_fora_da_semana_e_campos_obrigatorios(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:add_visita_pastoreio', args=[visita.id]),
+            {
+                'publicador': self.publicador_a1.id,
+                'data': '2026-09-14',
+                'assuntos': '',
+                'materia': '',
+                'acompanhante': '',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('data', response.context['form'].errors)
+        self.assertIn('assuntos', response.context['form'].errors)
+        self.assertIn('materia', response.context['form'].errors)
+        self.assertIn('acompanhante', response.context['form'].errors)
+        self.assertContains(response, "$('#pastoreioModal').modal('show')")
+        self.assertEqual(VisitaPastoreio.objects.count(), 0)
+
+    def test_pastoreio_recusa_publicador_e_acompanhante_invalidos(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+        url = reverse('ss_activities:add_visita_pastoreio', args=[visita.id])
+
+        response = self.client.post(
+            url,
+            {
+                'publicador': self.publicador_mudou_a1.id,
+                'data': '2026-09-08',
+                'assuntos': 'Assunto',
+                'materia': 'Matéria',
+                'acompanhante': self.anciao_b1.id,
+            },
+        )
+
+        self.assertIn('publicador', response.context['form'].errors)
+        self.assertIn('acompanhante', response.context['form'].errors)
+        self.assertEqual(VisitaPastoreio.objects.count(), 0)
+
+    def test_acompanhante_deve_ser_diferente_do_publicador(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:add_visita_pastoreio', args=[visita.id]),
+            {
+                'publicador': self.servo_a1.id,
+                'data': '2026-09-08',
+                'assuntos': 'Assunto',
+                'materia': 'Matéria',
+                'acompanhante': self.servo_a1.id,
+            },
+        )
+
+        self.assertIn('acompanhante', response.context['form'].errors)
+        self.assertEqual(VisitaPastoreio.objects.count(), 0)
+
+    def test_publicador_so_pode_ter_um_pastoreio_na_semana(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.criar_pastoreio(visita)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:add_visita_pastoreio', args=[visita.id]),
+            {
+                'publicador': self.publicador_a1.id,
+                'data': '2026-09-09',
+                'assuntos': 'Outro assunto',
+                'materia': 'Outra matéria',
+                'acompanhante': self.servo_a1.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('publicador', response.context['form'].errors)
+        self.assertEqual(VisitaPastoreio.objects.count(), 1)
+
+    def test_apaga_pastoreio_confirmado(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        pastoreio = self.criar_pastoreio(visita, confirmado=True)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse(
+                'ss_activities:delete_visita_pastoreio',
+                args=[visita.id, pastoreio.id],
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            '/ss/visitas-grupos/%s/pastoreio/' % visita.id,
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(
+            VisitaPastoreio.objects.filter(pk=pastoreio.id).exists()
+        )
+
+    def test_endpoints_pastoreio_exigem_permissao_metodo_e_congregacao(self):
+        visita_a = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        visita_b = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        pastoreio_b = self.criar_pastoreio(
+            visita_b,
+            publicador=self.publicador_b1,
+            acompanhante=self.anciao_b1,
+        )
+        delete_url = reverse(
+            'ss_activities:delete_visita_pastoreio',
+            args=[visita_b.id, pastoreio_b.id],
+        )
+
+        self.client.force_login(self.usuario_a)
+        self.assertEqual(self.client.get(delete_url).status_code, 405)
+        self.assertEqual(self.client.post(delete_url).status_code, 404)
+
+        self.client.force_login(self.sem_permissao)
+        add_url = reverse(
+            'ss_activities:add_visita_pastoreio',
+            args=[visita_a.id],
+        )
+        self.assertEqual(self.client.post(add_url, {}).status_code, 403)
+        self.assertTrue(
+            VisitaPastoreio.objects.filter(pk=pastoreio_b.id).exists()
+        )
+
+    def test_pastoreios_bloqueiam_reagendamento_e_exclusao_da_visita(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.criar_pastoreio(visita)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:edit_visita_grupo', args=[visita.id]),
+            {
+                'grupo': self.grupo_a2.id,
+                'data_inicio': '2026-09-14',
+                'ano': 2026,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('grupo', response.context['form'].errors)
+        self.assertIn('data_inicio', response.context['form'].errors)
+
+        response = self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {'ano': 2026},
+            follow=True,
+        )
+        self.assertContains(
+            response,
+            'Apague as visitas de pastoreio antes de apagar a visita ao grupo.',
+        )
+        self.assertTrue(VisitaGrupo.objects.filter(pk=visita.id).exists())
+
+    def test_pastoreios_nao_bloqueiam_alteracao_das_flags_da_visita(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.criar_pastoreio(visita)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:edit_visita_grupo', args=[visita.id]),
+            {
+                'grupo': self.grupo_a1.id,
+                'data_inicio': '2026-09-07',
+                'confirmada': 'on',
+                'ano': 2026,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        visita.refresh_from_db()
+        self.assertTrue(visita.confirmada)
+
+    def test_programacao_anual_mostra_botao_e_quantidade_de_pastoreios(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.criar_pastoreio(visita)
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(self.list_url, {'ano': 2026})
+        visita_listada = response.context['visitas'].get(pk=visita.id)
+
+        self.assertEqual(visita_listada.total_visitas_pastoreio, 1)
+        self.assertContains(response, 'Pastoreio')
+        self.assertContains(
+            response,
+            reverse(
+                'ss_activities:list_visitas_pastoreio',
+                args=[visita.id],
+            ),
+        )
 
     def test_helpers_definem_ano_de_servico_de_setembro_a_agosto(self):
         self.assertEqual(

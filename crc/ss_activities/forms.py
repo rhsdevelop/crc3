@@ -2,9 +2,9 @@ import datetime
 
 from django import forms
 
-from register.models import Grupos
+from register.models import Grupos, Publicadores
 
-from .models import VisitaGrupo
+from .models import VisitaGrupo, VisitaPastoreio
 
 
 def limites_ano_servico(ano_inicio):
@@ -72,6 +72,56 @@ class VisitaGrupoForm(forms.ModelForm):
             item.data_fim = item.data_inicio + datetime.timedelta(days=6)
         if item.executada:
             item.confirmada = True
+        if commit:
+            item.save()
+        return item
+
+
+class VisitaPastoreioForm(forms.ModelForm):
+    data = forms.DateField(
+        label='Data',
+        widget=forms.widgets.DateInput(attrs={'type': 'date'}),
+    )
+
+    class Meta:
+        model = VisitaPastoreio
+        fields = [
+            'publicador',
+            'data',
+            'assuntos',
+            'materia',
+            'acompanhante',
+            'confirmado',
+        ]
+        widgets = {
+            'assuntos': forms.Textarea(attrs={'rows': 3}),
+            'materia': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, visita_grupo=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.visita_grupo = visita_grupo
+        self.fields['publicador'].queryset = Publicadores.objects.none()
+        self.fields['acompanhante'].queryset = Publicadores.objects.none()
+        if visita_grupo:
+            self.instance.visita_grupo = visita_grupo
+            self.fields['publicador'].queryset = Publicadores.objects.filter(
+                grupo=visita_grupo.grupo,
+                situacao__in=[0, 1],
+            ).order_by('nome')
+            self.fields['acompanhante'].queryset = Publicadores.objects.filter(
+                cong=visita_grupo.cong,
+                situacao=1,
+                privilegio__in=[1, 2],
+            ).order_by('nome')
+            self.fields['data'].widget.attrs.update({
+                'min': visita_grupo.data_inicio.isoformat(),
+                'max': visita_grupo.data_fim.isoformat(),
+            })
+
+    def save(self, commit=True):
+        item = super().save(commit=False)
+        item.visita_grupo = self.visita_grupo
         if commit:
             item.save()
         return item

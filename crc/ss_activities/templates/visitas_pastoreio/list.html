@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="mb-3">
+  <a class="btn btn-secondary" href="{{ back_url }}">
+    <span class="fas fa-arrow-left"></span> Voltar para visitas aos grupos
+  </a>
+  <button
+    class="btn btn-info"
+    id="addPastoreioButton"
+    type="button"
+    data-toggle="modal"
+    data-target="#pastoreioModal"
+  >
+    <span class="fas fa-plus"></span> Adicionar visita
+  </button>
+</div>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Semana selecionada</h6>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-lg-4">
+        <strong>Grupo:</strong> {{ visita_grupo.grupo }}
+      </div>
+      <div class="col-lg-4">
+        <strong>Início:</strong> {{ visita_grupo.data_inicio|date:'d/m/Y' }}
+      </div>
+      <div class="col-lg-4">
+        <strong>Fim:</strong> {{ visita_grupo.data_fim|date:'d/m/Y' }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Visitas de pastoreio programadas</h6>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table-sm table-bordered table-striped" id="pastoreiosTable" width="100%" cellspacing="0">
+        <thead>
+          <tr>
+            <th>Publicador</th>
+            <th>Data</th>
+            <th>Assuntos</th>
+            <th>Matéria</th>
+            <th>Quem acompanha</th>
+            <th>Confirmado</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pastoreio in pastoreios %}
+          <tr>
+            <td>{{ pastoreio.publicador }}</td>
+            <td><span hidden>{{ pastoreio.data|date:'Ymd' }}</span>{{ pastoreio.data|date:'d/m/Y' }}</td>
+            <td>{{ pastoreio.assuntos|linebreaksbr }}</td>
+            <td>{{ pastoreio.materia|linebreaksbr }}</td>
+            <td>{{ pastoreio.acompanhante }}</td>
+            <td>
+              {% if pastoreio.confirmado %}
+              <span class="badge badge-success">Sim</span>
+              {% else %}
+              <span class="badge badge-secondary">Não</span>
+              {% endif %}
+            </td>
+            <td>
+              <button
+                class="btn btn-danger btn-sm delete-pastoreio"
+                type="button"
+                title="Apagar visita de pastoreio"
+                data-toggle="modal"
+                data-target="#deletePastoreioModal"
+                data-url="{% url 'ss_activities:delete_visita_pastoreio' visita_grupo.id pastoreio.id %}"
+                data-publicador="{{ pastoreio.publicador }}"
+                data-data="{{ pastoreio.data|date:'d/m/Y' }}"
+              >
+                <span class="fas fa-trash"></span>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center">Nenhuma visita de pastoreio programada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="pastoreioModal" tabindex="-1" role="dialog" aria-labelledby="pastoreioModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <form
+        id="pastoreioForm"
+        method="post"
+        action="{% url 'ss_activities:add_visita_pastoreio' visita_grupo.id %}"
+      >
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="pastoreioModalLabel">Adicionar visita de pastoreio</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-lg-6">{% bootstrap_field form.publicador %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.data %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.assuntos %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.materia %}</div>
+            <div class="col-lg-8">{% bootstrap_field form.acompanhante %}</div>
+            <div class="col-lg-4">{% bootstrap_field form.confirmado %}</div>
+          </div>
+          {% for error in form.non_field_errors %}
+          <div class="alert alert-danger">{{ error }}</div>
+          {% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deletePastoreioModal" tabindex="-1" role="dialog" aria-labelledby="deletePastoreioModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="deletePastoreioForm" method="post" action="">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="deletePastoreioModalLabel">Apagar visita de pastoreio</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Deseja realmente apagar esta visita de pastoreio?</p>
+          <p class="mb-0">
+            <strong id="deletePastoreioPublicador"></strong><br>
+            <span id="deletePastoreioData"></span>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-danger" type="submit">Apagar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script type="text/javascript">
+  $(document).ready(function () {
+    {% if pastoreios %}
+    $('#pastoreiosTable').DataTable({
+      pageLength: 25,
+      order: [[1, 'asc']]
+    });
+    {% endif %}
+
+    $('#addPastoreioButton').on('click', function () {
+      $('#id_publicador').val('');
+      $('#id_data').val('');
+      $('#id_assuntos').val('');
+      $('#id_materia').val('');
+      $('#id_acompanhante').val('');
+      $('#id_confirmado').prop('checked', false);
+      $('.invalid-feedback').remove();
+      $('.is-invalid').removeClass('is-invalid');
+    });
+
+    $('.delete-pastoreio').on('click', function () {
+      $('#deletePastoreioForm').attr('action', $(this).data('url'));
+      $('#deletePastoreioPublicador').text($(this).data('publicador'));
+      $('#deletePastoreioData').text($(this).data('data'));
+    });
+
+    {% if modal_open %}
+    $('#pastoreioModal').modal('show');
+    {% endif %}
+  });
+</script>
+{% endblock %}

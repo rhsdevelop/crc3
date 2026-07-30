@@ -125,6 +125,15 @@
               {% endif %}
             </td>
             <td>
+              <a
+                class="btn btn-secondary btn-sm"
+                href="{% url 'ss_activities:list_visitas_pastoreio' visita.id %}"
+                title="Visitas de pastoreio"
+              >
+                <span class="fas fa-user-friends"></span>
+                <span class="d-none d-lg-inline"> Pastoreio</span>
+                <span class="badge badge-light">{{ visita.total_visitas_pastoreio }}</span>
+              </a>
               <button
                 class="btn btn-info btn-sm edit-visita"
                 type="button"

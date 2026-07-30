@@ -4,15 +4,17 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import IntegrityError, transaction
+from django.db.models import Count
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template import loader
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from register.models import Cong, CongUser, Grupos
 
-from .forms import VisitaGrupoForm, limites_ano_servico
-from .models import VisitaGrupo
+from .forms import VisitaGrupoForm, VisitaPastoreioForm, limites_ano_servico
+from .models import VisitaGrupo, VisitaPastoreio
 
 
 def ano_servico_atual(data=None):
@@ -66,7 +68,9 @@ def contexto_listagem(
             cong=cong,
             data_inicio__gte=inicio,
             data_inicio__lte=fim,
-        ).select_related('grupo', 'cong')
+        ).select_related('grupo', 'cong').annotate(
+            total_visitas_pastoreio=Count('visitas_pastoreio'),
+        )
         grupos = Grupos.objects.filter(cong=cong).order_by('grupo')
 
     grupos_programados = visitas.values_list('grupo_id', flat=True)
@@ -105,6 +109,55 @@ def render_listagem(request, ano, cong, **kwargs):
     return HttpResponse(template.render(context, request))
 
 
+def get_visita_grupo_acessivel(request, visita_id, for_update=False):
+    visitas = VisitaGrupo.objects.select_related('grupo', 'cong')
+    if for_update:
+        visitas = visitas.select_for_update()
+    if request.user.is_superuser:
+        return get_object_or_404(visitas, pk=visita_id)
+
+    cong = get_congregacao_usuario(request)
+    if cong is False:
+        return False
+    return get_object_or_404(visitas, pk=visita_id, cong=cong)
+
+
+def ano_da_visita(visita):
+    return (
+        visita.data_inicio.year
+        if visita.data_inicio.month >= 9
+        else visita.data_inicio.year - 1
+    )
+
+
+def contexto_visitas_pastoreio(
+    request,
+    visita,
+    form=None,
+    modal_open=False,
+):
+    pastoreios = VisitaPastoreio.objects.filter(
+        visita_grupo=visita,
+    ).select_related('publicador', 'acompanhante')
+    if form is None:
+        form = VisitaPastoreioForm(visita_grupo=visita)
+    return {
+        'title': 'Visitas de Pastoreio',
+        'username': '%s %s' % (request.user.first_name, request.user.last_name),
+        'visita_grupo': visita,
+        'pastoreios': pastoreios,
+        'form': form,
+        'modal_open': modal_open,
+        'back_url': url_listagem(ano_da_visita(visita), visita.cong),
+    }
+
+
+def render_visitas_pastoreio(request, visita, **kwargs):
+    template = loader.get_template('visitas_pastoreio/list.html')
+    context = contexto_visitas_pastoreio(request, visita, **kwargs)
+    return HttpResponse(template.render(context, request))
+
+
 @login_required
 @permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
 def list_visitas_grupos(request):
@@ -113,6 +166,81 @@ def list_visitas_grupos(request):
     if cong is False:
         return redirect('/')
     return render_listagem(request, ano, cong)
+
+
+@login_required
+@permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
+def list_visitas_pastoreio(request, visita_id):
+    visita = get_visita_grupo_acessivel(request, visita_id)
+    if visita is False:
+        return redirect('/')
+    return render_visitas_pastoreio(request, visita)
+
+
+@login_required
+@permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
+@require_POST
+def add_visita_pastoreio(request, visita_id):
+    visita = get_visita_grupo_acessivel(request, visita_id)
+    if visita is False:
+        return redirect('/')
+
+    form = VisitaPastoreioForm(request.POST, visita_grupo=visita)
+    if form.is_valid():
+        item = form.save(commit=False)
+        item.create_user = request.user
+        item.assign_user = request.user
+        try:
+            with transaction.atomic():
+                item.save()
+        except IntegrityError:
+            form.add_error(
+                'publicador',
+                'Este publicador já possui uma visita de pastoreio nessa semana.',
+            )
+        else:
+            messages.success(request, 'Visita de pastoreio adicionada com sucesso.')
+            return redirect(
+                reverse(
+                    'ss_activities:list_visitas_pastoreio',
+                    args=[visita.id],
+                )
+            )
+
+    return render_visitas_pastoreio(
+        request,
+        visita,
+        form=form,
+        modal_open=True,
+    )
+
+
+@login_required
+@permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
+@require_POST
+def delete_visita_pastoreio(request, visita_id, pastoreio_id):
+    with transaction.atomic():
+        visita = get_visita_grupo_acessivel(
+            request,
+            visita_id,
+            for_update=True,
+        )
+        if visita is False:
+            return redirect('/')
+        pastoreio = get_object_or_404(
+            VisitaPastoreio.objects.select_for_update(),
+            pk=pastoreio_id,
+            visita_grupo=visita,
+        )
+        pastoreio.delete()
+
+    messages.success(request, 'Visita de pastoreio apagada com sucesso.')
+    return redirect(
+        reverse(
+            'ss_activities:list_visitas_pastoreio',
+            args=[visita.id],
+        )
+    )
 
 
 @login_required
@@ -221,7 +349,12 @@ def delete_visita_grupo(request, visita_id):
         else:
             raise Http404
 
-        if visita.confirmada:
+        if visita.visitas_pastoreio.exists():
+            messages.warning(
+                request,
+                'Apague as visitas de pastoreio antes de apagar a visita ao grupo.',
+            )
+        elif visita.confirmada:
             messages.warning(request, 'Uma visita confirmada não pode ser apagada.')
         else:
             visita.delete()

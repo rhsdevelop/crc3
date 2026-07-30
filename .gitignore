@@ -165,5 +165,7 @@ cython_debug/
 crc/register/migrations/
 crc/register/migrations/__init__.py
 crc/register/migrations/*.py
+crc/ss_activities/migrations/
+crc/ss_activities/migrations/*.py
 salao.db
 staticfiles/
