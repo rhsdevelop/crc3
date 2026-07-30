@@ -139,6 +139,20 @@
               >
                 <span class="fas fa-pen"></span>
               </button>
+              {% if not visita.confirmada %}
+              <button
+                class="btn btn-danger btn-sm delete-visita"
+                type="button"
+                title="Apagar visita"
+                data-toggle="modal"
+                data-target="#deleteVisitaModal"
+                data-url="{% url 'ss_activities:delete_visita_grupo' visita.id %}"
+                data-grupo="{{ visita.grupo }}"
+                data-periodo="{{ visita.data_inicio|date:'d/m/Y' }} a {{ visita.data_fim|date:'d/m/Y' }}"
+              >
+                <span class="fas fa-trash"></span>
+              </button>
+              {% endif %}
             </td>
           </tr>
           {% empty %}
@@ -202,6 +216,35 @@
         <div class="modal-footer">
           <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
           <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteVisitaModal" tabindex="-1" role="dialog" aria-labelledby="deleteVisitaModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="deleteVisitaForm" method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="ano" value="{{ ano }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deleteVisitaModalLabel">Apagar visita</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Deseja realmente apagar esta visita?</p>
+          <p class="mb-0">
+            <strong id="deleteVisitaGrupo"></strong><br>
+            <span id="deleteVisitaPeriodo"></span>
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-danger" type="submit">Apagar</button>
         </div>
       </form>
     </div>
@@ -278,6 +321,12 @@
       $('#id_data_fim_preview').val($(this).data('fim'));
       $('#id_confirmada').prop('checked', $(this).data('confirmada') === true);
       $('#id_executada').prop('checked', $(this).data('executada') === true);
+    });
+
+    $('.delete-visita').on('click', function () {
+      $('#deleteVisitaForm').attr('action', $(this).data('url'));
+      $('#deleteVisitaGrupo').text($(this).data('grupo'));
+      $('#deleteVisitaPeriodo').text($(this).data('periodo'));
     });
 
     calcularFim();

@@ -200,3 +200,31 @@ def edit_visita_grupo(request, visita_id):
         modal_mode='edit',
         visita=visita,
     )
+
+
+@login_required
+@permission_required('ss_activities.manage_visitas_grupos', raise_exception=True)
+@require_POST
+def delete_visita_grupo(request, visita_id):
+    ano = get_ano_servico(request)
+    cong = get_congregacao_usuario(request)
+    if cong is False:
+        return redirect('/')
+
+    with transaction.atomic():
+        visitas = VisitaGrupo.objects.select_for_update()
+        if request.user.is_superuser:
+            visita = get_object_or_404(visitas, pk=visita_id)
+            cong = visita.cong
+        elif cong:
+            visita = get_object_or_404(visitas, pk=visita_id, cong=cong)
+        else:
+            raise Http404
+
+        if visita.confirmada:
+            messages.warning(request, 'Uma visita confirmada não pode ser apagada.')
+        else:
+            visita.delete()
+            messages.success(request, 'Visita apagada com sucesso.')
+
+    return redirect(url_listagem(ano, cong))

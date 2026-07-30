@@ -255,6 +255,133 @@ class VisitaGrupoTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_visita_nao_confirmada_pode_ser_apagada_e_atualiza_cobertura(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {'ano': 2026},
+            follow=True,
+        )
+
+        self.assertFalse(VisitaGrupo.objects.filter(pk=visita.id).exists())
+        self.assertContains(response, 'Visita apagada com sucesso.')
+        self.assertIn(self.grupo_a1, response.context['grupos_sem_visita'])
+
+    def test_visita_confirmada_nao_pode_ser_apagada(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+            confirmada=True,
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {'ano': 2026},
+            follow=True,
+        )
+
+        self.assertTrue(VisitaGrupo.objects.filter(pk=visita.id).exists())
+        self.assertContains(response, 'Uma visita confirmada não pode ser apagada.')
+
+    def test_visita_executada_nao_pode_ser_apagada(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+            executada=True,
+        )
+        self.client.force_login(self.usuario_a)
+
+        self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {'ano': 2026},
+        )
+
+        visita.refresh_from_db()
+        self.assertTrue(visita.confirmada)
+        self.assertTrue(visita.executada)
+
+    def test_botao_apagar_aparece_somente_para_visita_nao_confirmada(self):
+        visita_aberta = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        visita_confirmada = self.criar_visita(
+            self.grupo_a2,
+            datetime.date(2026, 9, 14),
+            confirmada=True,
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(self.list_url, {'ano': 2026})
+
+        self.assertContains(
+            response,
+            reverse('ss_activities:delete_visita_grupo', args=[visita_aberta.id]),
+        )
+        self.assertNotContains(
+            response,
+            reverse('ss_activities:delete_visita_grupo', args=[visita_confirmada.id]),
+        )
+
+    def test_endpoint_apagar_exige_post_e_permissao(self):
+        visita = self.criar_visita(
+            self.grupo_a1,
+            datetime.date(2026, 9, 7),
+        )
+        url = reverse('ss_activities:delete_visita_grupo', args=[visita.id])
+        self.client.force_login(self.usuario_a)
+        self.assertEqual(self.client.get(url).status_code, 405)
+
+        self.client.force_login(self.sem_permissao)
+        self.assertEqual(
+            self.client.post(url, {'ano': 2026}).status_code,
+            403,
+        )
+        self.assertTrue(VisitaGrupo.objects.filter(pk=visita.id).exists())
+
+    def test_usuario_nao_apaga_visita_de_outra_congregacao(self):
+        visita = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {'ano': 2026},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(VisitaGrupo.objects.filter(pk=visita.id).exists())
+
+    def test_superusuario_apaga_e_retorna_para_congregacao_da_visita(self):
+        visita = self.criar_visita(
+            self.grupo_b1,
+            datetime.date(2026, 9, 7),
+        )
+        self.client.force_login(self.superuser)
+
+        response = self.client.post(
+            reverse('ss_activities:delete_visita_grupo', args=[visita.id]),
+            {
+                'ano': 2026,
+                'cong': self.cong_a.id,
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            '/ss/visitas-grupos/?ano=2026&cong=%s' % self.cong_b.id,
+            fetch_redirect_response=False,
+        )
+        self.assertFalse(VisitaGrupo.objects.filter(pk=visita.id).exists())
+
     def test_grupo_de_outra_congregacao_nao_pode_ser_enviado(self):
         self.client.force_login(self.usuario_a)
 

@@ -16,4 +16,9 @@ urlpatterns = [
         views.edit_visita_grupo,
         name='edit_visita_grupo',
     ),
+    path(
+        'visitas-grupos/<int:visita_id>/apagar/',
+        views.delete_visita_grupo,
+        name='delete_visita_grupo',
+    ),
 ]
