@@ -41,8 +41,12 @@
     <a class="btn btn-secondary" href="{{ semana_atual_url }}">Semana atual</a>
     <a class="btn btn-secondary" href="{{ proxima_semana_url }}">Próxima <span class="fas fa-chevron-right"></span></a>
   </div>
+  <div class="mb-2">
+  <button class="btn btn-outline-primary" type="button" data-toggle="modal" data-target="#imprimirPdfModal">
+    <span class="fas fa-print"></span> Imprimir PDF
+  </button>
   <button
-    class="btn btn-info mb-2"
+    class="btn btn-info"
     id="addDesignacaoButton"
     type="button"
     data-toggle="modal"
@@ -52,6 +56,7 @@
   >
     <span class="fas fa-plus"></span> Nova designação
   </button>
+  </div>
 </div>
 
 {% if not carrinhos_ativos %}
@@ -147,6 +152,35 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="imprimirPdfModal" tabindex="-1" role="dialog" aria-labelledby="imprimirPdfModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="get" action="{% url 'ss_activities:pdf_testemunho_publico' %}" target="_blank">
+        <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="imprimirPdfModalLabel">Imprimir programação semanal</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <p>Semana de <strong>{{ semana|date:'d/m/Y' }}</strong> a <strong>{{ fim_semana|date:'d/m/Y' }}</strong>.</p>
+          <label for="id_carrinho_pdf">Carrinho</label>
+          <select class="form-control" id="id_carrinho_pdf" name="carrinho">
+            <option value="">Todos os carrinhos</option>
+            {% for carrinho in carrinhos_impressao %}
+            <option value="{{ carrinho.id }}">{{ carrinho }}{% if not carrinho.ativo %} (inativo){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit"><span class="fas fa-print"></span> Abrir PDF</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>

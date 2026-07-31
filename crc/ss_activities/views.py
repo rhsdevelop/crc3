@@ -10,7 +10,8 @@ from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template import loader
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.utils.text import slugify
+from django.views.decorators.http import require_GET, require_POST
 
 from register.models import Cong, CongUser, Grupos, Publicadores
 
@@ -34,6 +35,11 @@ from .models import (
     PeriodoTestemunhoPublico,
     VisitaGrupo,
     VisitaPastoreio,
+)
+from .pdf import gerar_pdf_testemunho_publico
+from .services import (
+    carrinhos_disponiveis_para_impressao,
+    montar_grade_testemunho_publico,
 )
 
 
@@ -465,41 +471,10 @@ def contexto_painel_testemunho_publico(
     modal_mode='add',
     designacao=None,
 ):
-    fim_semana = semana + datetime.timedelta(days=6)
-    dias = [
-        {
-            'data': semana + datetime.timedelta(days=indice),
-            'nome': nome,
-        }
-        for indice, nome in enumerate([
-            'Segunda-feira',
-            'Terça-feira',
-            'Quarta-feira',
-            'Quinta-feira',
-            'Sexta-feira',
-            'Sábado',
-            'Domingo',
-        ])
-    ]
-    designacoes = DesignacaoTestemunhoPublico.objects.none()
-    periodos = PeriodoTestemunhoPublico.objects.none()
+    grade = montar_grade_testemunho_publico(cong, semana)
     configuracao = None
     carrinhos_ativos = 0
     if cong:
-        designacoes = DesignacaoTestemunhoPublico.objects.filter(
-            cong=cong,
-            data__range=(semana, fim_semana),
-        ).select_related(
-            'periodo',
-            'local',
-            'carrinho__cong__configuracao_testemunho_publico',
-            'publicador_1',
-            'publicador_2',
-        )
-        periodos = PeriodoTestemunhoPublico.objects.filter(cong=cong).filter(
-            Q(ativo=True)
-            | Q(designacoes__data__range=(semana, fim_semana))
-        ).distinct()
         configuracao = ConfiguracaoTestemunhoPublico.objects.filter(
             cong=cong,
         ).first()
@@ -508,42 +483,12 @@ def contexto_painel_testemunho_publico(
             ativo=True,
         ).count()
 
-    designacoes_por_periodo = {}
-    for item in designacoes:
-        designacoes_por_periodo.setdefault(
-            (item.periodo_id, item.data),
-            [],
-        ).append(item)
-
-    periodos_por_linha = {}
-    for periodo in periodos:
-        chave = (periodo.horario, periodo.descricao)
-        periodos_por_linha.setdefault(chave, {})[periodo.dia_semana] = periodo
-
-    linhas = []
-    for (horario, descricao), periodos_dia in sorted(
-        periodos_por_linha.items(),
-        key=lambda item: (item[0][0], item[0][1]),
-    ):
-        celulas = []
-        for indice, dia in enumerate(dias):
-            periodo = periodos_dia.get(indice)
-            celulas.append({
-                'data': dia['data'],
-                'periodo': periodo,
-                'designacoes': (
-                    designacoes_por_periodo.get((periodo.id, dia['data']), [])
-                    if periodo
-                    else []
-                ),
-                'pode_adicionar': bool(
-                    periodo and periodo.ativo and carrinhos_ativos
-                ),
-            })
-        linhas.append({
-            'rotulo': '%s %s' % (descricao, horario.strftime('%H:%M')),
-            'celulas': celulas,
-        })
+    for linha in grade['linhas']:
+        for celula in linha['celulas']:
+            periodo = celula['periodo']
+            celula['pode_adicionar'] = bool(
+                periodo and periodo.ativo and carrinhos_ativos
+            )
 
     if form is None:
         form = DesignacaoTestemunhoPublicoForm(cong=cong)
@@ -557,7 +502,7 @@ def contexto_painel_testemunho_publico(
             else None
         ),
         'semana': semana,
-        'fim_semana': fim_semana,
+        'fim_semana': grade['fim_semana'],
         'semana_anterior_url': url_testemunho_publico(
             'painel_testemunho_publico',
             semana - datetime.timedelta(days=7),
@@ -574,9 +519,12 @@ def contexto_painel_testemunho_publico(
             semana + datetime.timedelta(days=7),
             cong,
         ),
-        'dias': dias,
-        'linhas': linhas,
-        'designacoes': designacoes,
+        'dias': grade['dias'],
+        'linhas': grade['linhas'],
+        'designacoes': grade['designacoes'],
+        'carrinhos_impressao': carrinhos_disponiveis_para_impressao(
+            cong, semana
+        ),
         'configuracao': configuracao,
         'carrinhos_ativos': carrinhos_ativos,
         'form': form,
@@ -605,6 +553,36 @@ def painel_testemunho_publico(request):
     if cong is False:
         return redirect('/')
     return render_painel_testemunho_publico(request, semana, cong)
+
+
+@login_required
+@permission_required(PERMISSAO_TESTEMUNHO_PUBLICO, raise_exception=True)
+@require_GET
+def pdf_testemunho_publico(request):
+    semana = semana_testemunho_publico(request)
+    cong = get_congregacao_usuario(request)
+    if cong is False:
+        return redirect('/')
+    if not cong:
+        raise Http404
+
+    carrinho = None
+    carrinho_id = request.GET.get('carrinho')
+    if carrinho_id:
+        carrinho = get_object_or_404(
+            CarrinhoTestemunhoPublico.objects.select_related(
+                'cong__configuracao_testemunho_publico'
+            ),
+            pk=carrinho_id,
+            cong=cong,
+        )
+
+    arquivo = gerar_pdf_testemunho_publico(cong, semana, carrinho=carrinho)
+    resposta = HttpResponse(arquivo.getvalue(), content_type='application/pdf')
+    sufixo = slugify(str(carrinho)) if carrinho else 'todos'
+    nome = 'testemunho-publico-%s-%s.pdf' % (semana.isoformat(), sufixo)
+    resposta['Content-Disposition'] = 'inline; filename="%s"' % nome
+    return resposta
 
 
 def salvar_designacao_testemunho_publico(request, designacao=None):

@@ -1379,3 +1379,129 @@ class TestemunhoPublicoTests(TestCase):
             GET = {'semana': '2026-08-09'}
 
         self.assertEqual(semana_testemunho_publico(Request()), self.semana)
+
+    def test_pdf_exige_permissao_e_restringe_carrinho_por_congregacao(self):
+        url = reverse('ss_activities:pdf_testemunho_publico')
+        self.client.force_login(self.sem_permissao)
+        self.assertEqual(self.client.get(url).status_code, 403)
+
+        self.client.force_login(self.usuario_a)
+        response = self.client.get(url, {
+            'semana': self.semana.isoformat(),
+            'carrinho': self.carrinho_b.id,
+        })
+        self.assertEqual(response.status_code, 404)
+
+    def test_pdf_normaliza_semana_e_retorna_documento_inline(self):
+        self.criar_designacao()
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            reverse('ss_activities:pdf_testemunho_publico'),
+            {'semana': '2026-08-09'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertEqual(
+            response['Content-Disposition'],
+            'inline; filename="testemunho-publico-2026-08-03-todos.pdf"',
+        )
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        conteudo = response.content.decode('latin-1')
+        self.assertIn('03/08/2026', conteudo)
+        self.assertIn('09/08/2026', conteudo)
+
+    def test_pdf_filtra_carrinho_e_exibe_somente_duplas_resumidas_e_locais(self):
+        self.publicadores_a[0].nome = 'Ana Maria da Silva'
+        self.publicadores_a[0].save()
+        self.publicadores_a[1].nome = 'Beatriz dos Santos Oliveira'
+        self.publicadores_a[1].save()
+        self.criar_designacao()
+        self.criar_designacao(
+            local=self.local_2,
+            carrinho=self.carrinho_2,
+            publicador_1=self.publicadores_a[2],
+            publicador_2=self.publicadores_a[3],
+        )
+        self.client.force_login(self.usuario_a)
+
+        url = reverse('ss_activities:pdf_testemunho_publico')
+        response = self.client.get(url, {
+            'semana': self.semana.isoformat(),
+            'carrinho': self.carrinho_1.id,
+        })
+        conteudo = response.content.decode('latin-1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Ana Silva / Beatriz Oliveira', conteudo)
+        self.assertIn('Pra', conteudo)
+        self.assertNotIn('Carlos / Daniel', conteudo)
+        self.assertNotIn('Terminal', conteudo)
+        self.assertNotIn('Ana Maria da Silva', conteudo)
+
+        todos = self.client.get(url, {'semana': self.semana.isoformat()})
+        conteudo_todos = todos.content.decode('latin-1')
+        self.assertIn('Ana Silva / Beatriz Oliveira', conteudo_todos)
+        self.assertIn('Carlos / Daniel', conteudo_todos)
+        self.assertNotIn('Carrinho 1', conteudo_todos)
+        self.assertNotIn('Carrinho 2', conteudo_todos)
+
+    def test_pdf_sem_programacao_exibe_mensagem(self):
+        self.client.force_login(self.usuario_a)
+        response = self.client.get(
+            reverse('ss_activities:pdf_testemunho_publico'),
+            {'semana': self.semana.isoformat()},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            'Nenhuma designa',
+            response.content.decode('latin-1'),
+        )
+
+    def test_modal_pdf_inclui_carrinho_inativo_com_historico(self):
+        self.criar_designacao(carrinho=self.carrinho_2)
+        self.carrinho_2.ativo = False
+        self.carrinho_2.save()
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            self.painel_url,
+            {'semana': self.semana.isoformat()},
+        )
+
+        self.assertContains(response, 'Imprimir PDF')
+        self.assertContains(response, 'Todos os carrinhos')
+        self.assertContains(response, '%s (inativo)' % self.carrinho_2)
+        self.assertIn(
+            self.carrinho_2,
+            list(response.context['carrinhos_impressao']),
+        )
+
+    def test_superusuario_imprime_apenas_congregacao_selecionada(self):
+        publicador_b_2 = self.criar_publicador('Fernanda', self.grupo_b)
+        HabilitacaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            publicador=publicador_b_2,
+            data_treinamento=datetime.date(2026, 7, 1),
+        )
+        DesignacaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            data=self.semana,
+            periodo=self.periodo_b,
+            local=self.local_b,
+            carrinho=self.carrinho_b,
+            publicador_1=self.publicador_b,
+            publicador_2=publicador_b_2,
+        )
+        self.client.force_login(self.superuser)
+
+        response = self.client.get(
+            reverse('ss_activities:pdf_testemunho_publico'),
+            {'semana': self.semana.isoformat(), 'cong': self.cong_b.id},
+        )
+        conteudo = response.content.decode('latin-1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Eduardo / Fernanda', conteudo)
+        self.assertNotIn('Ana / Beatriz', conteudo)

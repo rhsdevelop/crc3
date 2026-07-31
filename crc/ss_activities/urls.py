@@ -47,6 +47,11 @@ urlpatterns = [
         name='painel_testemunho_publico',
     ),
     path(
+        'testemunho-publico/pdf/',
+        views.pdf_testemunho_publico,
+        name='pdf_testemunho_publico',
+    ),
+    path(
         'testemunho-publico/disponibilidade/',
         views.disponibilidade_testemunho_publico,
         name='disponibilidade_testemunho_publico',
