@@ -145,7 +145,7 @@
                 </div>
             </li>
             {% endif %}
-            {% if perms.ss_activities.manage_visitas_grupos %}
+            {% if perms.ss_activities.manage_visitas_grupos or perms.ss_activities.manage_testemunho_publico %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAtividadesSs"
                     aria-expanded="true" aria-controls="collapseAtividadesSs">
@@ -155,7 +155,12 @@
                 <div id="collapseAtividadesSs" class="collapse" aria-labelledby="headingAtividadesSs" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Programação:</h6>
+                        {% if perms.ss_activities.manage_visitas_grupos %}
                         <a class="collapse-item" href="{% url 'ss_activities:list_visitas_grupos' %}">Visita aos Grupos</a>
+                        {% endif %}
+                        {% if perms.ss_activities.manage_testemunho_publico %}
+                        <a class="collapse-item" href="{% url 'ss_activities:painel_testemunho_publico' %}">Testemunho Público</a>
+                        {% endif %}
                     </div>
                 </div>
             </li>

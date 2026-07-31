@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+{% if request.user.is_superuser %}
+<div class="card shadow mb-4">
+  <div class="card-body">
+    <form method="get">
+      <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+      <div class="form-row align-items-end">
+        <div class="col-lg-6">
+          <label for="id_cong">Congregação</label>
+          <select id="id_cong" name="cong" class="form-control" required>
+            <option value="">Selecione</option>
+            {% for cong in list_cong %}
+            <option value="{{ cong.id }}"{% if selected_cong.id == cong.id %} selected{% endif %}>{{ cong }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-lg-2"><button class="btn btn-primary" type="submit">Exibir</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if selected_cong %}
+{% include 'testemunho_publico/_navegacao.html' %}
+
+<button
+  class="btn btn-info mb-3"
+  id="addCadastroButton"
+  type="button"
+  data-toggle="modal"
+  data-target="#cadastroModal"
+  data-url="{% if tipo == 'habilitados' %}{% url 'ss_activities:add_habilitado_testemunho_publico' %}{% elif tipo == 'periodos' %}{% url 'ss_activities:add_periodo_testemunho_publico' %}{% else %}{% url 'ss_activities:add_local_testemunho_publico' %}{% endif %}"
+>
+  <span class="fas fa-plus"></span> Adicionar
+</button>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">{{ title }}</h6></div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-sm" id="cadastroTable" width="100%">
+        <thead>
+          <tr>
+            {% if tipo == 'habilitados' %}
+            <th>Publicador</th><th>Treinamento</th><th>Aprovado</th><th>Observação</th>
+            {% elif tipo == 'periodos' %}
+            <th>Dia</th><th>Descrição</th><th>Horário</th><th>Ativo</th>
+            {% else %}
+            <th>Local</th><th>Endereço ou referência</th><th>Observação</th><th>Ativo</th>
+            {% endif %}
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in itens %}
+          <tr>
+            {% if tipo == 'habilitados' %}
+            <td>{{ item.publicador }}</td>
+            <td><span hidden>{{ item.data_treinamento|date:'Ymd' }}</span>{{ item.data_treinamento|date:'d/m/Y' }}</td>
+            <td>{% if item.aprovado %}<span class="badge badge-success">Sim</span>{% else %}<span class="badge badge-secondary">Não</span>{% endif %}</td>
+            <td>{{ item.observacao|linebreaksbr }}</td>
+            {% elif tipo == 'periodos' %}
+            <td>{{ item.get_dia_semana_display }}</td>
+            <td>{{ item.descricao }}</td>
+            <td>{{ item.horario|time:'H:i' }}</td>
+            <td>{% if item.ativo %}<span class="badge badge-success">Sim</span>{% else %}<span class="badge badge-secondary">Não</span>{% endif %}</td>
+            {% else %}
+            <td>{{ item.nome }}</td>
+            <td>{{ item.endereco_referencia }}</td>
+            <td>{{ item.observacao|linebreaksbr }}</td>
+            <td>{% if item.ativo %}<span class="badge badge-success">Sim</span>{% else %}<span class="badge badge-secondary">Não</span>{% endif %}</td>
+            {% endif %}
+            <td>
+              <button
+                class="btn btn-info btn-sm edit-cadastro"
+                type="button"
+                data-toggle="modal"
+                data-target="#cadastroModal"
+                data-url="{% if tipo == 'habilitados' %}{% url 'ss_activities:edit_habilitado_testemunho_publico' item.id %}{% elif tipo == 'periodos' %}{% url 'ss_activities:edit_periodo_testemunho_publico' item.id %}{% else %}{% url 'ss_activities:edit_local_testemunho_publico' item.id %}{% endif %}"
+                {% if tipo == 'habilitados' %}
+                data-publicador="{{ item.publicador_id }}"
+                data-data-treinamento="{{ item.data_treinamento|date:'Y-m-d' }}"
+                data-aprovado="{{ item.aprovado|yesno:'true,false' }}"
+                data-observacao="{{ item.observacao }}"
+                {% elif tipo == 'periodos' %}
+                data-dia-semana="{{ item.dia_semana }}"
+                data-descricao="{{ item.descricao }}"
+                data-horario="{{ item.horario|time:'H:i' }}"
+                data-ativo="{{ item.ativo|yesno:'true,false' }}"
+                {% else %}
+                data-nome="{{ item.nome }}"
+                data-endereco-referencia="{{ item.endereco_referencia }}"
+                data-observacao="{{ item.observacao }}"
+                data-ativo="{{ item.ativo|yesno:'true,false' }}"
+                {% endif %}
+              ><span class="fas fa-pen"></span></button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center">Nenhum cadastro encontrado.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="cadastroModal" tabindex="-1" role="dialog" aria-labelledby="cadastroModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <form id="cadastroForm" method="post" action="{% if item_edicao %}{% if tipo == 'habilitados' %}{% url 'ss_activities:edit_habilitado_testemunho_publico' item_edicao.id %}{% elif tipo == 'periodos' %}{% url 'ss_activities:edit_periodo_testemunho_publico' item_edicao.id %}{% else %}{% url 'ss_activities:edit_local_testemunho_publico' item_edicao.id %}{% endif %}{% else %}{% if tipo == 'habilitados' %}{% url 'ss_activities:add_habilitado_testemunho_publico' %}{% elif tipo == 'periodos' %}{% url 'ss_activities:add_periodo_testemunho_publico' %}{% else %}{% url 'ss_activities:add_local_testemunho_publico' %}{% endif %}{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="cadastroModalLabel">Adicionar cadastro</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body">
+          {% bootstrap_form form %}
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% elif request.user.is_superuser %}
+<div class="alert alert-info">Selecione uma congregação para visualizar os cadastros.</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script src="/static/sb/vendor/datatables/jquery.dataTables.min.js"></script>
+<script src="/static/sb/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+<script type="text/javascript">
+  $(document).ready(function () {
+    {% if itens %}$('#cadastroTable').DataTable({pageLength: 25});{% endif %}
+
+    function limparCadastro() {
+      $('#cadastroForm input[type="text"], #cadastroForm input[type="date"], #cadastroForm input[type="time"], #cadastroForm textarea').val('');
+      $('#cadastroForm select').val('');
+      $('#cadastroForm input[type="checkbox"]').prop('checked', true);
+      $('.invalid-feedback').remove();
+      $('.is-invalid').removeClass('is-invalid');
+    }
+
+    $('#addCadastroButton').on('click', function () {
+      limparCadastro();
+      $('#cadastroModalLabel').text('Adicionar cadastro');
+      $('#cadastroForm').attr('action', $(this).data('url'));
+    });
+
+    $('.edit-cadastro').on('click', function () {
+      limparCadastro();
+      $('#cadastroModalLabel').text('Editar cadastro');
+      $('#cadastroForm').attr('action', $(this).data('url'));
+      {% if tipo == 'habilitados' %}
+      $('#id_publicador').val(String($(this).data('publicador')));
+      $('#id_data_treinamento').val($(this).data('data-treinamento'));
+      $('#id_aprovado').prop('checked', $(this).data('aprovado') === true);
+      $('#id_observacao').val($(this).data('observacao'));
+      {% elif tipo == 'periodos' %}
+      $('#id_dia_semana').val(String($(this).data('dia-semana')));
+      $('#id_descricao').val($(this).data('descricao'));
+      $('#id_horario').val($(this).data('horario'));
+      $('#id_ativo').prop('checked', $(this).data('ativo') === true);
+      {% else %}
+      $('#id_nome').val($(this).data('nome'));
+      $('#id_endereco_referencia').val($(this).data('endereco-referencia'));
+      $('#id_observacao').val($(this).data('observacao'));
+      $('#id_ativo').prop('checked', $(this).data('ativo') === true);
+      {% endif %}
+    });
+
+    {% if modal_open %}$('#cadastroModal').modal('show');{% endif %}
+  });
+</script>
+{% endblock %}

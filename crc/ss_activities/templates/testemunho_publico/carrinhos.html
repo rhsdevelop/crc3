@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+{% if request.user.is_superuser %}
+<div class="card shadow mb-4"><div class="card-body">
+  <form method="get">
+    <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+    <div class="form-row align-items-end">
+      <div class="col-lg-6">
+        <label for="id_cong">Congregação</label>
+        <select id="id_cong" name="cong" class="form-control" required>
+          <option value="">Selecione</option>
+          {% for cong in list_cong %}<option value="{{ cong.id }}"{% if selected_cong.id == cong.id %} selected{% endif %}>{{ cong }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-lg-2"><button class="btn btn-primary" type="submit">Exibir</button></div>
+    </div>
+  </form>
+</div></div>
+{% endif %}
+
+{% if selected_cong %}
+{% include 'testemunho_publico/_navegacao.html' %}
+
+<div class="row">
+  <div class="col-lg-5 mb-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Configuração dos carrinhos</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'ss_activities:save_configuracao_testemunho_publico' %}">
+          {% csrf_token %}
+          <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+          <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+          {% bootstrap_form configuracao_form %}
+          <button class="btn btn-primary" type="submit">Salvar configuração</button>
+        </form>
+        <small class="form-text text-muted mt-3">
+          O sistema gera Carrinho 1, 2… ou Carrinho A, B…; nomes personalizados não são alterados ao trocar o modo.
+        </small>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7 mb-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Carrinhos cadastrados</h6></div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped table-sm">
+            <thead><tr><th>Ordem</th><th>Identificação</th><th>Situação</th><th>Ações</th></tr></thead>
+            <tbody>
+              {% for carrinho in carrinhos %}
+              <tr>
+                <td>{{ carrinho.numero_ordem }}</td>
+                <td>{{ carrinho }}</td>
+                <td>{% if carrinho.ativo %}<span class="badge badge-success">Ativo</span>{% else %}<span class="badge badge-secondary">Inativo</span>{% endif %}</td>
+                <td>
+                  <button
+                    class="btn btn-info btn-sm edit-carrinho"
+                    type="button"
+                    title="Editar identificação"
+                    data-toggle="modal"
+                    data-target="#carrinhoModal"
+                    data-url="{% url 'ss_activities:edit_carrinho_testemunho_publico' carrinho.id %}"
+                    data-identificacao="{{ carrinho }}"
+                    data-nome="{{ carrinho.nome_personalizado|default:'' }}"
+                  ><span class="fas fa-pen"></span></button>
+                </td>
+              </tr>
+              {% empty %}<tr><td colspan="4" class="text-center">Nenhum carrinho configurado.</td></tr>{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="carrinhoModal" tabindex="-1" role="dialog" aria-labelledby="carrinhoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="carrinhoForm" method="post" action="{% if carrinho_edicao %}{% url 'ss_activities:edit_carrinho_testemunho_publico' carrinho_edicao.id %}{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="carrinhoModalLabel">Editar carrinho</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <p>Identificação atual: <strong id="carrinhoIdentificacao"></strong></p>
+          {% bootstrap_form carrinho_form %}
+          <small class="form-text text-muted">Deixe vazio para usar novamente a identificação automática.</small>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% elif request.user.is_superuser %}
+<div class="alert alert-info">Selecione uma congregação para configurar os carrinhos.</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+  $(document).ready(function () {
+    $('.edit-carrinho').on('click', function () {
+      $('#carrinhoForm').attr('action', $(this).data('url'));
+      $('#carrinhoIdentificacao').text($(this).data('identificacao'));
+      $('#id_nome_personalizado').val($(this).data('nome'));
+      $('.invalid-feedback').remove();
+      $('.is-invalid').removeClass('is-invalid');
+    });
+    {% if modal_open %}
+    $('#carrinhoIdentificacao').text('{{ carrinho_edicao }}');
+    $('#carrinhoModal').modal('show');
+    {% endif %}
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <div class="card-header py-3">
+    <h6 class="m-0 font-weight-bold text-primary">Semana da programação</h6>
+  </div>
+  <div class="card-body">
+    <form method="get">
+      <div class="form-row align-items-end">
+        {% if request.user.is_superuser %}
+        <div class="col-lg-5">
+          <label for="id_cong">Congregação</label>
+          <select id="id_cong" name="cong" class="form-control" required>
+            <option value="">Selecione</option>
+            {% for cong in list_cong %}
+            <option value="{{ cong.id }}"{% if selected_cong.id == cong.id %} selected{% endif %}>{{ cong }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="col-lg-3">
+          <label for="id_semana">Segunda-feira</label>
+          <input class="form-control" id="id_semana" name="semana" type="date" value="{{ semana|date:'Y-m-d' }}">
+        </div>
+        <div class="col-lg-2">
+          <button class="btn btn-primary" type="submit">Exibir</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_cong %}
+{% include 'testemunho_publico/_navegacao.html' %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <div class="btn-group mb-2" role="group" aria-label="Navegação entre semanas">
+    <a class="btn btn-secondary" href="{{ semana_anterior_url }}"><span class="fas fa-chevron-left"></span> Anterior</a>
+    <a class="btn btn-secondary" href="{{ semana_atual_url }}">Semana atual</a>
+    <a class="btn btn-secondary" href="{{ proxima_semana_url }}">Próxima <span class="fas fa-chevron-right"></span></a>
+  </div>
+  <button
+    class="btn btn-info mb-2"
+    id="addDesignacaoButton"
+    type="button"
+    data-toggle="modal"
+    data-target="#designacaoModal"
+    data-url="{% url 'ss_activities:add_designacao_testemunho_publico' %}"
+    {% if not carrinhos_ativos %}disabled title="Configure ao menos um carrinho ativo"{% endif %}
+  >
+    <span class="fas fa-plus"></span> Nova designação
+  </button>
+</div>
+
+{% if not carrinhos_ativos %}
+<div class="alert alert-warning">
+  Configure ao menos um carrinho antes de criar designações.
+  <a class="alert-link" href="{% url 'ss_activities:list_carrinhos_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}&amp;cong={{ selected_cong.id }}">Configurar carrinhos</a>.
+</div>
+{% endif %}
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3 d-flex justify-content-between align-items-center">
+    <h6 class="m-0 font-weight-bold text-primary">
+      {{ semana|date:'d/m/Y' }} a {{ fim_semana|date:'d/m/Y' }}
+    </h6>
+    <span class="badge badge-primary">{{ designacoes|length }} {% if designacoes|length == 1 %}designação{% else %}designações{% endif %}</span>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm tp-painel" width="100%">
+        <thead class="thead-light">
+          <tr>
+            <th class="text-nowrap">Horário</th>
+            {% for dia in dias %}
+            <th class="text-center text-nowrap">
+              {{ dia.nome }}<br><small>{{ dia.data|date:'d/m' }}</small>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for linha in linhas %}
+          <tr>
+            <th class="align-middle text-nowrap">{{ linha.rotulo }}</th>
+            {% for celula in linha.celulas %}
+            <td class="align-top tp-celula">
+              {% for designacao in celula.designacoes %}
+              <div class="card border-left-primary shadow-sm mb-2">
+                <div class="card-body p-2">
+                  <div class="font-weight-bold text-gray-900">
+                    {{ designacao.publicador_1 }} / {{ designacao.publicador_2 }}
+                  </div>
+                  <div class="small"><span class="fas fa-box"></span> {{ designacao.carrinho }}</div>
+                  <div class="small"><span class="fas fa-map-marker-alt"></span> {{ designacao.local }}</div>
+                  <div class="mt-1">
+                    <button
+                      class="btn btn-info btn-sm edit-designacao"
+                      type="button"
+                      title="Editar designação"
+                      data-toggle="modal"
+                      data-target="#designacaoModal"
+                      data-url="{% url 'ss_activities:edit_designacao_testemunho_publico' designacao.id %}"
+                      data-id="{{ designacao.id }}"
+                      data-data="{{ designacao.data|date:'Y-m-d' }}"
+                      data-periodo="{{ designacao.periodo_id }}"
+                      data-local="{{ designacao.local_id }}"
+                      data-carrinho="{{ designacao.carrinho_id }}"
+                      data-publicador1="{{ designacao.publicador_1_id }}"
+                      data-publicador2="{{ designacao.publicador_2_id }}"
+                    ><span class="fas fa-pen"></span></button>
+                    <button
+                      class="btn btn-danger btn-sm delete-designacao"
+                      type="button"
+                      title="Apagar designação"
+                      data-toggle="modal"
+                      data-target="#deleteDesignacaoModal"
+                      data-url="{% url 'ss_activities:delete_designacao_testemunho_publico' designacao.id %}"
+                      data-dupla="{{ designacao.publicador_1 }} / {{ designacao.publicador_2 }}"
+                      data-detalhes="{{ designacao.carrinho }} — {{ designacao.local }}"
+                    ><span class="fas fa-trash"></span></button>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+              {% if celula.pode_adicionar %}
+              <button
+                class="btn btn-outline-primary btn-sm add-celula"
+                type="button"
+                title="Adicionar designação neste período"
+                data-toggle="modal"
+                data-target="#designacaoModal"
+                data-url="{% url 'ss_activities:add_designacao_testemunho_publico' %}"
+                data-data="{{ celula.data|date:'Y-m-d' }}"
+                data-periodo="{{ celula.periodo.id }}"
+              ><span class="fas fa-plus"></span></button>
+              {% elif not celula.periodo %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center">Cadastre os horários disponíveis para montar o painel.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="designacaoModal" tabindex="-1" role="dialog" aria-labelledby="designacaoModalLabel" aria-hidden="true" data-disponibilidade-url="{% url 'ss_activities:disponibilidade_testemunho_publico' %}">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <form id="designacaoForm" method="post" action="{% if modal_mode == 'edit' %}{% url 'ss_activities:edit_designacao_testemunho_publico' designacao_edicao.id %}{% else %}{% url 'ss_activities:add_designacao_testemunho_publico' %}{% endif %}">
+        {% csrf_token %}
+        <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <input id="designacaoId" type="hidden" value="{% if designacao_edicao %}{{ designacao_edicao.id }}{% endif %}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="designacaoModalLabel">Nova designação</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-lg-6">{% bootstrap_field form.data %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.periodo %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.local %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.carrinho %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.publicador_1 %}</div>
+            <div class="col-lg-6">{% bootstrap_field form.publicador_2 %}</div>
+          </div>
+          {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deleteDesignacaoModal" tabindex="-1" role="dialog" aria-labelledby="deleteDesignacaoModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form id="deleteDesignacaoForm" method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+        <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="deleteDesignacaoModalLabel">Apagar designação</h5>
+          <button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <p>Deseja realmente apagar esta designação?</p>
+          <strong id="deleteDesignacaoDupla"></strong><br>
+          <span id="deleteDesignacaoDetalhes"></span>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button>
+          <button class="btn btn-danger" type="submit">Apagar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% elif request.user.is_superuser %}
+<div class="alert alert-info">Selecione uma congregação para visualizar a programação.</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+  $(document).ready(function () {
+    function limparFormulario() {
+      $('#designacaoForm select').val('');
+      $('#id_data').val('');
+      $('#designacaoId').val('');
+      $('#designacaoForm option').prop('disabled', false);
+      $('.invalid-feedback').remove();
+      $('.is-invalid').removeClass('is-invalid');
+    }
+
+    function filtrarOpcoes(seletor, permitidos) {
+      $(seletor + ' option').each(function () {
+        var valor = Number($(this).val());
+        if (valor) $(this).prop('disabled', permitidos.indexOf(valor) === -1);
+      });
+    }
+
+    function atualizarDisponibilidade() {
+      var data = $('#id_data').val();
+      var periodo = $('#id_periodo').val();
+      if (!data || !periodo) return;
+      $.getJSON($('#designacaoModal').data('disponibilidade-url'), {
+        data: data,
+        periodo: periodo,
+        designacao: $('#designacaoId').val(),
+        cong: '{{ selected_cong.id }}'
+      }).done(function (resposta) {
+        filtrarOpcoes('#id_local', resposta.locais);
+        filtrarOpcoes('#id_carrinho', resposta.carrinhos);
+        filtrarOpcoes('#id_publicador_1', resposta.publicadores);
+        filtrarOpcoes('#id_publicador_2', resposta.publicadores);
+      });
+    }
+
+    $('#addDesignacaoButton').on('click', function () {
+      limparFormulario();
+      $('#designacaoModalLabel').text('Nova designação');
+      $('#designacaoForm').attr('action', $(this).data('url'));
+    });
+
+    $('.add-celula').on('click', function () {
+      limparFormulario();
+      $('#designacaoModalLabel').text('Nova designação');
+      $('#designacaoForm').attr('action', $(this).data('url'));
+      $('#id_data').val($(this).data('data'));
+      $('#id_periodo').val(String($(this).data('periodo')));
+      atualizarDisponibilidade();
+    });
+
+    $('.edit-designacao').on('click', function () {
+      limparFormulario();
+      $('#designacaoModalLabel').text('Editar designação');
+      $('#designacaoForm').attr('action', $(this).data('url'));
+      $('#designacaoId').val($(this).data('id'));
+      $('#id_data').val($(this).data('data'));
+      $('#id_periodo').val(String($(this).data('periodo')));
+      $('#id_local').val(String($(this).data('local')));
+      $('#id_carrinho').val(String($(this).data('carrinho')));
+      $('#id_publicador_1').val(String($(this).data('publicador1')));
+      $('#id_publicador_2').val(String($(this).data('publicador2')));
+      atualizarDisponibilidade();
+    });
+
+    $('#id_data, #id_periodo').on('change', atualizarDisponibilidade);
+
+    $('.delete-designacao').on('click', function () {
+      $('#deleteDesignacaoForm').attr('action', $(this).data('url'));
+      $('#deleteDesignacaoDupla').text($(this).data('dupla'));
+      $('#deleteDesignacaoDetalhes').text($(this).data('detalhes'));
+    });
+
+    {% if modal_open %}
+    $('#designacaoModalLabel').text('{% if modal_mode == "edit" %}Editar designação{% else %}Nova designação{% endif %}');
+    $('#designacaoModal').modal('show');
+    atualizarDisponibilidade();
+    {% endif %}
+  });
+</script>
+<style>
+  .tp-painel { min-width: 1250px; }
+  .tp-celula { min-width: 150px; }
+</style>
+{% endblock %}

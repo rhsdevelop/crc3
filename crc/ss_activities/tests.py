@@ -9,8 +9,18 @@ from django.urls import reverse
 from register.models import Cong, CongUser, Grupos, Publicadores
 
 from .forms import limites_ano_servico
-from .models import VisitaGrupo, VisitaPastoreio
-from .views import ano_servico_atual
+from .models import (
+    CarrinhoTestemunhoPublico,
+    ConfiguracaoTestemunhoPublico,
+    DesignacaoTestemunhoPublico,
+    HabilitacaoTestemunhoPublico,
+    LocalTestemunhoPublico,
+    PeriodoTestemunhoPublico,
+    VisitaGrupo,
+    VisitaPastoreio,
+    numero_para_letras,
+)
+from .views import ano_servico_atual, semana_testemunho_publico
 
 
 class VisitaGrupoTests(TestCase):
@@ -967,3 +977,397 @@ class VisitaGrupoTests(TestCase):
         )
         self.assertEqual(ano_servico_atual(datetime.date(2026, 8, 31)), 2025)
         self.assertEqual(ano_servico_atual(datetime.date(2026, 9, 1)), 2026)
+
+
+class TestemunhoPublicoTests(TestCase):
+    def setUp(self):
+        self.cong_a = Cong.objects.create(nome='Congregação A', numero=10)
+        self.cong_b = Cong.objects.create(nome='Congregação B', numero=20)
+        self.grupo_a = Grupos.objects.create(
+            grupo='Grupo A',
+            dirigente='Dirigente A',
+            cong=self.cong_a,
+        )
+        self.grupo_b = Grupos.objects.create(
+            grupo='Grupo B',
+            dirigente='Dirigente B',
+            cong=self.cong_b,
+        )
+        self.publicadores_a = [
+            self.criar_publicador('Ana', self.grupo_a),
+            self.criar_publicador('Beatriz', self.grupo_a),
+            self.criar_publicador('Carlos', self.grupo_a),
+            self.criar_publicador('Daniel', self.grupo_a),
+        ]
+        self.publicador_b = self.criar_publicador('Eduardo', self.grupo_b)
+        self.inativo_a = self.criar_publicador(
+            'Inativo',
+            self.grupo_a,
+            situacao=0,
+        )
+        self.usuario_a = User.objects.create_user(username='tp_a', password='senha')
+        self.usuario_b = User.objects.create_user(username='tp_b', password='senha')
+        self.sem_permissao = User.objects.create_user(
+            username='sem_tp',
+            password='senha',
+        )
+        self.superuser = User.objects.create_superuser(
+            username='admin_tp',
+            password='senha',
+        )
+        CongUser.objects.create(cong=self.cong_a, user=self.usuario_a)
+        CongUser.objects.create(cong=self.cong_b, user=self.usuario_b)
+        CongUser.objects.create(cong=self.cong_a, user=self.sem_permissao)
+        permissao = Permission.objects.get(
+            content_type__app_label='ss_activities',
+            codename='manage_testemunho_publico',
+        )
+        self.usuario_a.user_permissions.add(permissao)
+        self.usuario_b.user_permissions.add(permissao)
+        self.semana = datetime.date(2026, 8, 3)
+        self.periodo = PeriodoTestemunhoPublico.objects.create(
+            cong=self.cong_a,
+            dia_semana=0,
+            descricao='Manhã',
+            horario=datetime.time(6, 40),
+        )
+        self.periodo_b = PeriodoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            dia_semana=0,
+            descricao='Manhã',
+            horario=datetime.time(6, 40),
+        )
+        self.local_1 = LocalTestemunhoPublico.objects.create(
+            cong=self.cong_a,
+            nome='Praça Central',
+        )
+        self.local_2 = LocalTestemunhoPublico.objects.create(
+            cong=self.cong_a,
+            nome='Terminal',
+        )
+        self.local_b = LocalTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            nome='Praça B',
+        )
+        for publicador in self.publicadores_a:
+            HabilitacaoTestemunhoPublico.objects.create(
+                cong=self.cong_a,
+                publicador=publicador,
+                data_treinamento=datetime.date(2026, 7, 1),
+            )
+        HabilitacaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            publicador=self.publicador_b,
+            data_treinamento=datetime.date(2026, 7, 1),
+        )
+        self.configuracao = ConfiguracaoTestemunhoPublico.objects.create(
+            cong=self.cong_a,
+            quantidade_carrinhos=2,
+            modo_identificacao='N',
+        )
+        self.configuracao_b = ConfiguracaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            quantidade_carrinhos=1,
+            modo_identificacao='N',
+        )
+        self.carrinho_1, self.carrinho_2 = list(
+            CarrinhoTestemunhoPublico.objects.filter(cong=self.cong_a)
+        )
+        self.carrinho_b = CarrinhoTestemunhoPublico.objects.get(cong=self.cong_b)
+        self.painel_url = reverse('ss_activities:painel_testemunho_publico')
+
+    def criar_publicador(self, nome, grupo, situacao=1):
+        return Publicadores.objects.create(
+            nome=nome,
+            endereco='Endereço',
+            esperanca=0,
+            privilegio=0,
+            tipo=0,
+            sexo=0,
+            situacao=situacao,
+            classe='0',
+            grupo=grupo,
+            cong=grupo.cong,
+        )
+
+    def criar_designacao(self, **kwargs):
+        dados = {
+            'cong': self.cong_a,
+            'data': self.semana,
+            'periodo': self.periodo,
+            'local': self.local_1,
+            'carrinho': self.carrinho_1,
+            'publicador_1': self.publicadores_a[0],
+            'publicador_2': self.publicadores_a[1],
+        }
+        dados.update(kwargs)
+        return DesignacaoTestemunhoPublico.objects.create(**dados)
+
+    def test_configuracao_gera_carrinhos_numericos_alfabeticos_e_customizados(self):
+        self.assertEqual(str(self.carrinho_1), 'Carrinho 1')
+        self.assertEqual(str(self.carrinho_2), 'Carrinho 2')
+        self.assertEqual(numero_para_letras(26), 'Z')
+        self.assertEqual(numero_para_letras(27), 'AA')
+        self.assertEqual(numero_para_letras(28), 'AB')
+
+        self.carrinho_1.nome_personalizado = 'Carrinho Principal'
+        self.carrinho_1.save()
+        self.configuracao.modo_identificacao = 'A'
+        self.configuracao.save()
+        self.carrinho_1.refresh_from_db()
+        self.carrinho_2.refresh_from_db()
+
+        self.assertEqual(str(self.carrinho_1), 'Carrinho Principal')
+        self.assertEqual(str(self.carrinho_2), 'Carrinho B')
+
+        self.configuracao.quantidade_carrinhos = 28
+        self.configuracao.save()
+        self.assertEqual(
+            str(
+                CarrinhoTestemunhoPublico.objects.get(
+                    cong=self.cong_a,
+                    numero_ordem=27,
+                )
+            ),
+            'Carrinho AA',
+        )
+        self.assertEqual(
+            str(
+                CarrinhoTestemunhoPublico.objects.get(
+                    cong=self.cong_a,
+                    numero_ordem=28,
+                )
+            ),
+            'Carrinho AB',
+        )
+
+        self.carrinho_1.nome_personalizado = ''
+        self.carrinho_1.save()
+        self.assertEqual(str(self.carrinho_1), 'Carrinho A')
+
+    def test_aumento_reducao_e_reativacao_de_carrinhos(self):
+        self.configuracao.quantidade_carrinhos = 3
+        self.configuracao.save()
+        self.assertEqual(
+            CarrinhoTestemunhoPublico.objects.filter(
+                cong=self.cong_a,
+                ativo=True,
+            ).count(),
+            3,
+        )
+
+        self.configuracao.quantidade_carrinhos = 1
+        self.configuracao.save()
+        self.assertEqual(
+            CarrinhoTestemunhoPublico.objects.filter(
+                cong=self.cong_a,
+                ativo=True,
+            ).count(),
+            1,
+        )
+
+        self.configuracao.quantidade_carrinhos = 2
+        self.configuracao.save()
+        self.carrinho_2.refresh_from_db()
+        self.assertTrue(self.carrinho_2.ativo)
+
+    def test_reducao_bloqueia_carrinho_com_designacao_futura(self):
+        proxima_segunda = datetime.date.today() + datetime.timedelta(
+            days=(7 - datetime.date.today().weekday()) % 7,
+        )
+        if proxima_segunda == datetime.date.today():
+            proxima_segunda += datetime.timedelta(days=7)
+        self.criar_designacao(
+            data=proxima_segunda,
+            local=self.local_2,
+            carrinho=self.carrinho_2,
+        )
+        self.configuracao.quantidade_carrinhos = 1
+
+        with self.assertRaises(ValidationError):
+            self.configuracao.save()
+
+        self.configuracao.refresh_from_db()
+        self.carrinho_2.refresh_from_db()
+        self.assertEqual(self.configuracao.quantidade_carrinhos, 2)
+        self.assertTrue(self.carrinho_2.ativo)
+
+    def test_designacao_valida_habilitacao_congregacao_e_conflitos(self):
+        self.criar_designacao()
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                local=self.local_2,
+                carrinho=self.carrinho_1,
+                publicador_1=self.publicadores_a[2],
+                publicador_2=self.publicadores_a[3],
+            )
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                local=self.local_1,
+                carrinho=self.carrinho_2,
+                publicador_1=self.publicadores_a[2],
+                publicador_2=self.publicadores_a[3],
+            )
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                local=self.local_2,
+                carrinho=self.carrinho_2,
+                publicador_1=self.publicadores_a[0],
+                publicador_2=self.publicadores_a[2],
+            )
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                data=self.semana + datetime.timedelta(days=1),
+                local=self.local_2,
+                carrinho=self.carrinho_2,
+                publicador_1=self.publicadores_a[2],
+                publicador_2=self.publicadores_a[3],
+            )
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                local=self.local_2,
+                carrinho=self.carrinho_2,
+                publicador_1=self.inativo_a,
+                publicador_2=self.publicadores_a[3],
+            )
+        with self.assertRaises(ValidationError):
+            self.criar_designacao(
+                periodo=self.periodo_b,
+                local=self.local_b,
+                carrinho=self.carrinho_b,
+                publicador_1=self.publicador_b,
+                publicador_2=self.publicadores_a[3],
+            )
+
+    def test_permite_duplas_no_mesmo_periodo_com_local_e_carrinho_diferentes(self):
+        self.criar_designacao()
+        segunda = self.criar_designacao(
+            local=self.local_2,
+            carrinho=self.carrinho_2,
+            publicador_1=self.publicadores_a[2],
+            publicador_2=self.publicadores_a[3],
+        )
+        self.assertIsNotNone(segunda.pk)
+        self.assertEqual(DesignacaoTestemunhoPublico.objects.count(), 2)
+
+    def test_permissao_controla_menu_e_rotas(self):
+        self.client.force_login(self.sem_permissao)
+        self.assertEqual(self.client.get(self.painel_url).status_code, 403)
+        self.assertNotContains(self.client.get('/'), 'Testemunho Público')
+
+        self.client.force_login(self.usuario_a)
+        self.assertContains(self.client.get('/'), 'Testemunho Público')
+        response = self.client.get(
+            self.painel_url,
+            {'semana': self.semana.isoformat()},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_painel_semanal_mostra_dupla_carrinho_local_e_navegacao(self):
+        self.criar_designacao()
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            self.painel_url,
+            {'semana': '2026-08-05'},
+        )
+
+        self.assertEqual(response.context['semana'], self.semana)
+        self.assertContains(response, 'Ana / Beatriz')
+        self.assertContains(response, 'Carrinho 1')
+        self.assertContains(response, 'Praça Central')
+        self.assertContains(response, 'Segunda-feira')
+        self.assertContains(response, 'Domingo')
+        self.assertContains(response, 'Semana atual')
+
+    def test_inclusao_por_rota_registra_auditoria_e_isola_congregacao(self):
+        self.client.force_login(self.usuario_a)
+        response = self.client.post(
+            reverse('ss_activities:add_designacao_testemunho_publico'),
+            {
+                'semana': self.semana.isoformat(),
+                'data': self.semana.isoformat(),
+                'periodo': self.periodo.id,
+                'local': self.local_1.id,
+                'carrinho': self.carrinho_1.id,
+                'publicador_1': self.publicadores_a[0].id,
+                'publicador_2': self.publicadores_a[1].id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        designacao = DesignacaoTestemunhoPublico.objects.get()
+        self.assertEqual(designacao.create_user, self.usuario_a)
+        self.assertEqual(designacao.assign_user, self.usuario_a)
+
+        response = self.client.post(
+            reverse('ss_activities:add_designacao_testemunho_publico'),
+            {
+                'semana': self.semana.isoformat(),
+                'data': self.semana.isoformat(),
+                'periodo': self.periodo_b.id,
+                'local': self.local_b.id,
+                'carrinho': self.carrinho_b.id,
+                'publicador_1': self.publicador_b.id,
+                'publicador_2': self.publicadores_a[2].id,
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('periodo', response.context['form'].errors)
+        self.assertEqual(DesignacaoTestemunhoPublico.objects.count(), 1)
+
+    def test_disponibilidade_remove_recursos_ocupados(self):
+        self.criar_designacao()
+        self.client.force_login(self.usuario_a)
+
+        response = self.client.get(
+            reverse('ss_activities:disponibilidade_testemunho_publico'),
+            {
+                'data': self.semana.isoformat(),
+                'periodo': self.periodo.id,
+            },
+        )
+        dados = response.json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(self.carrinho_1.id, dados['carrinhos'])
+        self.assertIn(self.carrinho_2.id, dados['carrinhos'])
+        self.assertNotIn(self.local_1.id, dados['locais'])
+        self.assertIn(self.local_2.id, dados['locais'])
+        self.assertNotIn(self.publicadores_a[0].id, dados['publicadores'])
+        self.assertIn(self.publicadores_a[2].id, dados['publicadores'])
+
+    def test_cadastros_e_designacoes_de_outra_congregacao_retornam_404(self):
+        publicador_b_2 = self.criar_publicador('Fernanda', self.grupo_b)
+        HabilitacaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            publicador=publicador_b_2,
+            data_treinamento=datetime.date(2026, 7, 1),
+        )
+        designacao_b = DesignacaoTestemunhoPublico.objects.create(
+            cong=self.cong_b,
+            data=self.semana,
+            periodo=self.periodo_b,
+            local=self.local_b,
+            carrinho=self.carrinho_b,
+            publicador_1=self.publicador_b,
+            publicador_2=publicador_b_2,
+        )
+        self.client.force_login(self.usuario_a)
+
+        self.assertEqual(
+            self.client.post(
+                reverse(
+                    'ss_activities:delete_designacao_testemunho_publico',
+                    args=[designacao_b.id],
+                ),
+                {'semana': self.semana.isoformat()},
+            ).status_code,
+            404,
+        )
+
+    def test_helper_semana_normaliza_para_segunda_feira(self):
+        class Request:
+            POST = {}
+            GET = {'semana': '2026-08-09'}
+
+        self.assertEqual(semana_testemunho_publico(Request()), self.semana)

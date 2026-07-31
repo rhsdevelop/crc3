@@ -1,0 +1,17 @@
+<div class="mb-3">
+  <a class="btn btn-primary mb-1" href="{% url 'ss_activities:painel_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}{% if selected_cong %}&amp;cong={{ selected_cong.id }}{% endif %}">
+    <span class="fas fa-calendar-alt"></span> Painel
+  </a>
+  <a class="btn btn-outline-primary mb-1" href="{% url 'ss_activities:list_habilitados_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}{% if selected_cong %}&amp;cong={{ selected_cong.id }}{% endif %}">
+    <span class="fas fa-user-check"></span> Publicadores habilitados
+  </a>
+  <a class="btn btn-outline-primary mb-1" href="{% url 'ss_activities:list_periodos_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}{% if selected_cong %}&amp;cong={{ selected_cong.id }}{% endif %}">
+    <span class="fas fa-clock"></span> Horários
+  </a>
+  <a class="btn btn-outline-primary mb-1" href="{% url 'ss_activities:list_locais_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}{% if selected_cong %}&amp;cong={{ selected_cong.id }}{% endif %}">
+    <span class="fas fa-map-marker-alt"></span> Locais
+  </a>
+  <a class="btn btn-outline-primary mb-1" href="{% url 'ss_activities:list_carrinhos_testemunho_publico' %}?semana={{ semana|date:'Y-m-d' }}{% if selected_cong %}&amp;cong={{ selected_cong.id }}{% endif %}">
+    <span class="fas fa-box"></span> Carrinhos
+  </a>
+</div>
