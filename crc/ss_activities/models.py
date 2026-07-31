@@ -263,6 +263,13 @@ def numero_para_letras(numero):
     return resultado
 
 
+def resumir_nome(nome):
+    partes = nome.split()
+    if len(partes) <= 1:
+        return nome
+    return '%s %s' % (partes[0], partes[-1])
+
+
 class AuditoriaTestemunhoPublico(models.Model):
     create_user = models.ForeignKey(
         User,
@@ -610,6 +617,13 @@ class DesignacaoTestemunhoPublico(AuditoriaTestemunhoPublico):
             self.publicador_1,
             self.publicador_2,
             self.data.strftime('%d/%m/%Y'),
+        )
+
+    @property
+    def nomes_resumidos(self):
+        return '%s / %s' % (
+            resumir_nome(self.publicador_1.nome),
+            resumir_nome(self.publicador_2.nome),
         )
 
     def clean(self):

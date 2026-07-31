@@ -1264,6 +1264,10 @@ class TestemunhoPublicoTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_painel_semanal_mostra_dupla_carrinho_local_e_navegacao(self):
+        self.publicadores_a[0].nome = 'Ana Maria da Silva'
+        self.publicadores_a[0].save()
+        self.publicadores_a[1].nome = 'Beatriz dos Santos Oliveira'
+        self.publicadores_a[1].save()
         self.criar_designacao()
         self.client.force_login(self.usuario_a)
 
@@ -1273,7 +1277,11 @@ class TestemunhoPublicoTests(TestCase):
         )
 
         self.assertEqual(response.context['semana'], self.semana)
-        self.assertContains(response, 'Ana / Beatriz')
+        self.assertContains(response, 'Ana Silva / Beatriz Oliveira')
+        self.assertEqual(
+            response.context['designacoes'].get().nomes_resumidos,
+            'Ana Silva / Beatriz Oliveira',
+        )
         self.assertContains(response, 'Carrinho 1')
         self.assertContains(response, 'Praça Central')
         self.assertContains(response, 'Segunda-feira')
