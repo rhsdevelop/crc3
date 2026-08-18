@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Semana da programação</h6></div>
+  <div class="card-body">
+    <form method="get">
+      <div class="form-row align-items-end">
+        {% if request.user.is_superuser %}
+        <div class="col-lg-5">
+          <label for="id_cong">Congregação</label>
+          <select class="form-control" id="id_cong" name="cong" required>
+            <option value="">Selecione</option>
+            {% for cong in list_cong %}<option value="{{ cong.id }}"{% if selected_cong.id == cong.id %} selected{% endif %}>{{ cong }}</option>{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="col-lg-3">
+          <label for="id_semana">Segunda-feira</label>
+          <input class="form-control" id="id_semana" name="semana" type="date" value="{{ semana|date:'Y-m-d' }}">
+        </div>
+        <div class="col-lg-2"><button class="btn btn-primary" type="submit">Exibir</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_cong %}
+<div class="d-flex flex-wrap mb-3">
+  {% if pode_programar %}
+  <a class="btn btn-outline-primary mr-2 mb-2" href="{% url 'ss_activities:list_arranjos_campo' %}?cong={{ selected_cong.id }}">Arranjos</a>
+  <a class="btn btn-outline-primary mr-2 mb-2" href="{% url 'ss_activities:list_dirigentes_campo' %}?cong={{ selected_cong.id }}">Dirigentes habilitados</a>
+  <a class="btn btn-outline-primary mr-2 mb-2" href="{% url 'ss_activities:list_locais_campo' %}?cong={{ selected_cong.id }}">Locais</a>
+  {% endif %}
+  <a class="btn btn-outline-primary mr-2 mb-2" href="{% url 'ss_activities:list_territorios_campo' %}?cong={{ selected_cong.id }}">Territórios</a>
+  <a class="btn btn-outline-primary mr-2 mb-2" href="{% url 'ss_activities:distribuicao_territorios' %}?cong={{ selected_cong.id }}">Distribuição</a>
+  <a class="btn btn-outline-secondary mr-2 mb-2" target="_blank" href="{% url 'ss_activities:pdf_servico_campo' %}?semana={{ semana|date:'Y-m-d' }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-print"></span> Imprimir PDF</a>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+  <div class="btn-group mb-2" role="group">
+    <a class="btn btn-secondary" href="{{ semana_anterior_url }}"><span class="fas fa-chevron-left"></span> Anterior</a>
+    <a class="btn btn-secondary" href="{{ semana_atual_url }}">Semana atual</a>
+    <a class="btn btn-secondary" href="{{ proxima_semana_url }}">Próxima <span class="fas fa-chevron-right"></span></a>
+  </div>
+  {% if pode_programar %}
+  <form method="post" action="{% url 'ss_activities:gerar_semana_servico_campo' %}" class="mb-2">
+    {% csrf_token %}
+    <input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}">
+    <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+    <button class="btn btn-info" type="submit"><span class="fas fa-calendar-plus"></span> Gerar semana</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card shadow mb-4">
+  <div class="card-header py-3 d-flex justify-content-between align-items-center">
+    <h6 class="m-0 font-weight-bold text-primary">{{ semana|date:'d/m/Y' }} a {{ fim_semana|date:'d/m/Y' }}</h6>
+    <span class="badge badge-primary">{{ total_programacoes }} saída(s)</span>
+  </div>
+  <div class="card-body">
+    <div class="row flex-nowrap overflow-auto">
+      {% for dia in dias %}
+      <div class="col-xl col-lg-4 col-md-6 campo-dia">
+        <h6 class="text-center font-weight-bold border-bottom pb-2">{{ dia.nome }}<br><small>{{ dia.data|date:'d/m' }}</small></h6>
+        {% for item in dia.programacoes %}
+        <div class="card shadow-sm mb-3 border-left-{% if item.status == 'D' %}success{% elif item.status == 'C' %}secondary{% elif item.status == 'R' %}warning{% elif item.status == 'A' %}danger{% else %}primary{% endif %}">
+          <div class="card-body p-2">
+            <div class="font-weight-bold text-gray-900">{{ item.horario|time:'H:i' }} - {{ item.local_nome }}</div>
+            {% if item.grupo_nome %}<div class="small"><span class="fas fa-users"></span> {{ item.grupo_nome }}</div>{% endif %}
+            <div class="small"><span class="fas fa-user-tie"></span> {{ item.dirigente_exibicao }}</div>
+            <div class="small"><span class="fas fa-map"></span> {{ item.atividade_exibicao }}</div>
+            <span class="badge badge-{% if item.status == 'D' %}success{% elif item.status == 'C' %}secondary{% elif item.status == 'R' %}warning{% elif item.status == 'A' %}danger{% else %}primary{% endif %}">{{ item.get_status_display }}</span>
+            <div class="mt-2">
+              {% if item.status == 'A' or item.status == 'P' %}
+              <button class="btn btn-info btn-sm edit-programacao" type="button" title="Editar" data-toggle="modal" data-target="#programacaoModal"
+                data-url="{% url 'ss_activities:editar_programacao_campo' item.id %}"
+                data-horario="{{ item.horario|time:'H:i' }}" data-local="{{ item.local_id }}" data-grupo="{{ item.grupo_id|default:'' }}" data-arranjo-descricao="{{ item.descricao }}"
+                data-dirigencia="{{ item.tipo_dirigencia }}" data-dirigente="{{ item.dirigente_id|default:'' }}"
+                data-atividade="{{ item.tipo_atividade }}" data-descricao="{{ item.descricao_atividade }}" data-territorio="{{ item.territorio_id|default:'' }}">
+                <span class="fas fa-pen"></span>
+              </button>
+              {% endif %}
+              {% if item.mapa_id %}<a class="btn btn-outline-primary btn-sm" title="Abrir mapa" target="_blank" href="{% url 'ss_activities:baixar_mapa_territorio' item.mapa_id %}?cong={{ selected_cong.id }}"><span class="fas fa-map-marked-alt"></span></a>{% endif %}
+              {% if item.status == 'P' and item.tipo_atividade == 'T' %}<button class="btn btn-warning btn-sm movimento" type="button" data-toggle="modal" data-target="#movimentoModal" data-url="{% url 'ss_activities:movimentar_programacao_campo' item.id %}" data-acao="retirar" data-titulo="Registrar retirada"><span class="fas fa-sign-out-alt"></span></button>{% endif %}
+              {% if item.status == 'R' %}<button class="btn btn-success btn-sm movimento" type="button" data-toggle="modal" data-target="#movimentoModal" data-url="{% url 'ss_activities:movimentar_programacao_campo' item.id %}" data-acao="devolver" data-titulo="Registrar devolução"><span class="fas fa-undo"></span></button>{% endif %}
+              {% if pode_programar and item.status != 'R' and item.status != 'D' and item.status != 'C' %}<button class="btn btn-danger btn-sm movimento" type="button" data-toggle="modal" data-target="#movimentoModal" data-url="{% url 'ss_activities:movimentar_programacao_campo' item.id %}" data-acao="cancelar" data-titulo="Cancelar programação"><span class="fas fa-ban"></span></button>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% empty %}<p class="text-center text-muted small">Sem saída</p>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="programacaoModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document"><div class="modal-content">
+    <form id="programacaoForm" method="post" action="{% if programacao_edicao %}{% url 'ss_activities:editar_programacao_campo' programacao_edicao.id %}{% endif %}">
+      {% csrf_token %}<input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}"><input type="hidden" name="cong" value="{{ selected_cong.id }}">
+      <div class="modal-header"><h5 class="modal-title">Completar programação</h5><button class="close" type="button" data-dismiss="modal"><span>&times;</span></button></div>
+      <div class="modal-body">
+        {% if form.tipo_dirigencia %}<div class="row"><div class="col-md-6">{% bootstrap_field form.horario %}</div><div class="col-md-6">{% bootstrap_field form.local %}</div><div class="col-md-6">{% bootstrap_field form.grupo %}</div><div class="col-md-6">{% bootstrap_field form.descricao %}</div></div>{% bootstrap_field form.tipo_dirigencia %}{% bootstrap_field form.dirigente %}{% endif %}
+        {% bootstrap_field form.tipo_atividade %}{% bootstrap_field form.descricao_atividade %}{% bootstrap_field form.territorio %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Salvar</button></div>
+    </form>
+  </div></div>
+</div>
+
+<div class="modal fade" id="movimentoModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog" role="document"><div class="modal-content">
+    <form id="movimentoForm" method="post" action="">
+      {% csrf_token %}<input type="hidden" name="semana" value="{{ semana|date:'Y-m-d' }}"><input type="hidden" name="cong" value="{{ selected_cong.id }}"><input id="movimentoAcao" type="hidden" name="acao">
+      <div class="modal-header"><h5 class="modal-title" id="movimentoTitulo"></h5><button class="close" type="button" data-dismiss="modal"><span>&times;</span></button></div>
+      <div class="modal-body">
+        <div id="resultadoGrupo"><label for="id_resultado">Resultado</label><select class="form-control" id="id_resultado" name="resultado"><option value="">Selecione</option><option value="C">Coberto</option><option value="P">Parcial</option><option value="N">Não trabalhado</option></select></div>
+        <div class="form-group mt-3"><label for="id_observacao">Observação <span id="observacaoObrigatoria"></span></label><textarea class="form-control" id="id_observacao" name="observacao" rows="3"></textarea></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" type="button" data-dismiss="modal">Voltar</button><button class="btn btn-primary" type="submit">Confirmar</button></div>
+    </form>
+  </div></div>
+</div>
+{% elif request.user.is_superuser %}<div class="alert alert-info">Selecione uma congregação para visualizar a programação.</div>{% endif %}
+{% endblock %}
+
+{% block js %}
+<script>
+$(function () {
+  $('.edit-programacao').on('click', function () {
+    var b = $(this); $('#programacaoForm').attr('action', b.data('url'));
+    $('#id_horario').val(b.data('horario')); $('#id_local').val(b.data('local')); $('#id_grupo').val(b.data('grupo')); $('#id_descricao').val(b.data('arranjo-descricao'));
+    $('#id_tipo_dirigencia').val(b.data('dirigencia')); $('#id_dirigente').val(b.data('dirigente'));
+    $('#id_tipo_atividade').val(b.data('atividade')); $('#id_descricao_atividade').val(b.data('descricao')); $('#id_territorio').val(b.data('territorio'));
+  });
+  $('.movimento').on('click', function () {
+    var b = $(this), acao = b.data('acao'); $('#movimentoForm').attr('action', b.data('url')); $('#movimentoAcao').val(acao); $('#movimentoTitulo').text(b.data('titulo'));
+    $('#resultadoGrupo').toggle(acao === 'devolver'); $('#id_resultado').prop('required', acao === 'devolver'); $('#observacaoObrigatoria').text(acao === 'cancelar' ? '(obrigatória)' : ''); $('#id_observacao').prop('required', acao === 'cancelar');
+  });
+  {% if modal_open %}$('#programacaoModal').modal('show');{% endif %}
+});
+</script>
+<style>.campo-dia{min-width:260px}.overflow-auto{overflow-x:auto}</style>
+{% endblock %}

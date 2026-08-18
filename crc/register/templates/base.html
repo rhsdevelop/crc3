@@ -145,7 +145,7 @@
                 </div>
             </li>
             {% endif %}
-            {% if perms.ss_activities.manage_visitas_grupos or perms.ss_activities.manage_testemunho_publico %}
+            {% if perms.ss_activities.manage_visitas_grupos or perms.ss_activities.manage_testemunho_publico or perms.ss_activities.manage_programacao_campo or perms.ss_activities.manage_territorios %}
             <li class="nav-item">
                 <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAtividadesSs"
                     aria-expanded="true" aria-controls="collapseAtividadesSs">
@@ -160,6 +160,9 @@
                         {% endif %}
                         {% if perms.ss_activities.manage_testemunho_publico %}
                         <a class="collapse-item" href="{% url 'ss_activities:painel_testemunho_publico' %}">Testemunho Público</a>
+                        {% endif %}
+                        {% if perms.ss_activities.manage_programacao_campo or perms.ss_activities.manage_territorios %}
+                        <a class="collapse-item" href="{% url 'ss_activities:painel_servico_campo' %}">Serviço de Campo</a>
                         {% endif %}
                     </div>
                 </div>

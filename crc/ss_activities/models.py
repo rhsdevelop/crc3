@@ -1,10 +1,16 @@
 import datetime
+import os
+import uuid
 
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.db.models import Q
+from django.utils.text import slugify
+from PIL import Image, UnidentifiedImageError
 
 from register.models import Cong, Grupos, Publicadores
 
@@ -701,5 +707,544 @@ class DesignacaoTestemunhoPublico(AuditoriaTestemunhoPublico):
             raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+TIPOS_ATIVIDADE_CAMPO = [
+    ('T', 'Território'),
+    ('C', 'Cartas'),
+    ('O', 'Outro'),
+]
+
+TIPOS_DIRIGENCIA_CAMPO = [
+    ('P', 'Publicador habilitado'),
+    ('G', 'Responsabilidade do grupo'),
+]
+
+STATUS_PROGRAMACAO_CAMPO = [
+    ('A', 'A preparar'),
+    ('P', 'Programada'),
+    ('R', 'Retirada'),
+    ('D', 'Devolvida'),
+    ('C', 'Cancelada'),
+]
+
+RESULTADOS_TERRITORIO_CAMPO = [
+    ('', 'Não informado'),
+    ('C', 'Coberto'),
+    ('P', 'Parcial'),
+    ('N', 'Não trabalhado'),
+]
+
+
+def validar_arquivo_mapa(arquivo):
+    extensao = os.path.splitext(arquivo.name)[1].lower()
+    if extensao not in {'.jpg', '.jpeg', '.png', '.webp'}:
+        raise ValidationError('Envie um mapa nos formatos JPEG, PNG ou WebP.')
+    if arquivo.size > 10 * 1024 * 1024:
+        raise ValidationError('O arquivo do mapa deve ter no máximo 10 MB.')
+    posicao = arquivo.tell() if hasattr(arquivo, 'tell') else None
+    try:
+        imagem = Image.open(arquivo)
+        imagem.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ValidationError('O arquivo enviado não é uma imagem válida.')
+    finally:
+        if posicao is not None and hasattr(arquivo, 'seek'):
+            arquivo.seek(posicao)
+
+
+def caminho_mapa_territorio(instance, filename):
+    extensao = os.path.splitext(filename)[1].lower()
+    return 'territorios/%s/%s/%s%s' % (
+        instance.territorio.cong_id,
+        slugify(instance.territorio.codigo) or instance.territorio_id,
+        uuid.uuid4().hex,
+        extensao,
+    )
+
+
+class PrivateMapStorage(FileSystemStorage):
+    @property
+    def base_location(self):
+        return settings.PRIVATE_MEDIA_ROOT
+
+    @property
+    def location(self):
+        return os.path.abspath(self.base_location)
+
+    @property
+    def base_url(self):
+        return None
+
+
+private_map_storage = PrivateMapStorage()
+
+
+class DirigenteCampoHabilitado(AuditoriaTestemunhoPublico):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    publicador = models.ForeignKey(
+        Publicadores,
+        db_column='Publicador',
+        on_delete=models.PROTECT,
+        related_name='habilitacoes_dirigente_campo',
+    )
+    ativo = models.BooleanField(db_column='Ativo', default=True)
+    observacao = models.TextField(db_column='Observacao', blank=True)
+
+    class Meta:
+        db_table = 'Campo_Dirigente_Habilitado'
+        ordering = ['publicador__nome']
+        default_permissions = ()
+        permissions = [
+            ('manage_programacao_campo', 'Pode gerenciar a programação de campo'),
+            ('manage_territorios', 'Pode gerenciar os territórios'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cong', 'publicador'],
+                name='unique_campo_dirigente_cong_publicador',
+            ),
+        ]
+
+    def __str__(self):
+        return str(self.publicador)
+
+    def clean(self):
+        super().clean()
+        if not self.publicador_id:
+            return
+        errors = {}
+        if self.publicador.cong_id != self.cong_id:
+            errors['publicador'] = 'O publicador pertence a outra congregação.'
+        elif self.publicador.situacao != 1:
+            errors['publicador'] = 'O dirigente deve ser um publicador ativo.'
+        elif self.publicador.privilegio not in [1, 2]:
+            errors['publicador'] = 'O dirigente deve ser servo ministerial ou ancião.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class LocalSaidaCampo(AuditoriaTestemunhoPublico):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    nome = models.CharField(db_column='Nome', max_length=100)
+    endereco_referencia = models.CharField(
+        db_column='Endereco_Referencia', max_length=200, blank=True,
+        verbose_name='Endereço ou referência',
+    )
+    ativo = models.BooleanField(db_column='Ativo', default=True)
+
+    class Meta:
+        db_table = 'Campo_Local_Saida'
+        ordering = ['nome']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cong', 'nome'], name='unique_campo_local_cong_nome'
+            ),
+        ]
+
+    def __str__(self):
+        return self.nome
+
+    def save(self, *args, **kwargs):
+        self.nome = self.nome.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class ArranjoSaidaCampo(AuditoriaTestemunhoPublico):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    dia_semana = models.IntegerField(
+        db_column='Dia_Semana', choices=DIAS_SEMANA,
+        verbose_name='Dia da semana',
+    )
+    horario = models.TimeField(db_column='Horario', verbose_name='Horário')
+    local = models.ForeignKey(
+        LocalSaidaCampo, db_column='Local', on_delete=models.PROTECT,
+        related_name='arranjos',
+    )
+    grupo = models.ForeignKey(
+        Grupos, db_column='Grupo', on_delete=models.PROTECT,
+        related_name='arranjos_saida_campo', blank=True, null=True,
+    )
+    descricao = models.CharField(db_column='Descricao', max_length=80, blank=True)
+    ativo = models.BooleanField(db_column='Ativo', default=True)
+
+    class Meta:
+        db_table = 'Campo_Arranjo_Saida'
+        ordering = ['dia_semana', 'horario', 'local__nome', 'grupo__grupo']
+        default_permissions = ()
+
+    def __str__(self):
+        complemento = ' - %s' % self.grupo if self.grupo_id else ''
+        return '%s %s - %s%s' % (
+            self.get_dia_semana_display(),
+            self.horario.strftime('%H:%M'),
+            self.local,
+            complemento,
+        )
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.local_id and self.local.cong_id != self.cong_id:
+            errors['local'] = 'O local pertence a outra congregação.'
+        if self.grupo_id and self.grupo.cong_id != self.cong_id:
+            errors['grupo'] = 'O grupo pertence a outra congregação.'
+        if self.cong_id and self.local_id and self.horario is not None:
+            duplicados = ArranjoSaidaCampo.objects.filter(
+                cong_id=self.cong_id,
+                dia_semana=self.dia_semana,
+                horario=self.horario,
+                local_id=self.local_id,
+                grupo_id=self.grupo_id,
+            )
+            if self.pk:
+                duplicados = duplicados.exclude(pk=self.pk)
+            if duplicados.exists():
+                errors['horario'] = 'Já existe esse arranjo para o dia, local e grupo.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        self.descricao = self.descricao.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class TerritorioCampo(AuditoriaTestemunhoPublico):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    codigo = models.CharField(db_column='Codigo', max_length=30, verbose_name='Código')
+    localidade = models.CharField(db_column='Localidade', max_length=100)
+    descricao = models.TextField(db_column='Descricao', blank=True, verbose_name='Descrição')
+    observacao = models.TextField(db_column='Observacao', blank=True, verbose_name='Observações')
+    ativo = models.BooleanField(db_column='Ativo', default=True)
+
+    class Meta:
+        db_table = 'Campo_Territorio'
+        ordering = ['codigo']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cong', 'codigo'], name='unique_campo_territorio_cong_codigo'
+            ),
+        ]
+
+    def __str__(self):
+        return '%s - %s' % (self.codigo, self.localidade)
+
+    @property
+    def mapa_vigente(self):
+        return self.mapas.filter(vigente=True).first()
+
+    def save(self, *args, **kwargs):
+        self.codigo = self.codigo.strip()
+        self.localidade = self.localidade.strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class MapaTerritorio(AuditoriaTestemunhoPublico):
+    territorio = models.ForeignKey(
+        TerritorioCampo, db_column='Territorio', on_delete=models.PROTECT,
+        related_name='mapas',
+    )
+    arquivo = models.ImageField(
+        db_column='Arquivo', upload_to=caminho_mapa_territorio,
+        validators=[validar_arquivo_mapa], storage=private_map_storage,
+    )
+    versao = models.PositiveSmallIntegerField(db_column='Versao', editable=False)
+    vigente = models.BooleanField(db_column='Vigente', default=True)
+
+    class Meta:
+        db_table = 'Campo_Mapa_Territorio'
+        ordering = ['-versao']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=['territorio', 'versao'],
+                name='unique_campo_mapa_territorio_versao',
+            ),
+            models.UniqueConstraint(
+                fields=['territorio'], condition=Q(vigente=True),
+                name='unique_campo_mapa_vigente',
+            ),
+        ]
+
+    def __str__(self):
+        return '%s - versão %s' % (self.territorio, self.versao)
+
+    @property
+    def cong(self):
+        return self.territorio.cong
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            TerritorioCampo.objects.select_for_update().get(pk=self.territorio_id)
+            if not self.pk and not self.versao:
+                ultima = MapaTerritorio.objects.filter(
+                    territorio_id=self.territorio_id,
+                ).aggregate(models.Max('versao'))['versao__max'] or 0
+                self.versao = ultima + 1
+            if self.vigente:
+                MapaTerritorio.objects.filter(
+                    territorio_id=self.territorio_id, vigente=True,
+                ).exclude(pk=self.pk).update(vigente=False)
+            self.full_clean()
+            return super().save(*args, **kwargs)
+
+
+class ProgramacaoCampo(AuditoriaTestemunhoPublico):
+    cong = models.ForeignKey(Cong, db_column='Cong', on_delete=models.PROTECT)
+    data = models.DateField(db_column='Data')
+    arranjo = models.ForeignKey(
+        ArranjoSaidaCampo, db_column='Arranjo', on_delete=models.PROTECT,
+        related_name='programacoes',
+    )
+    horario = models.TimeField(db_column='Horario', verbose_name='Horário')
+    local = models.ForeignKey(
+        LocalSaidaCampo, db_column='Local', on_delete=models.PROTECT,
+        related_name='programacoes',
+    )
+    local_nome = models.CharField(db_column='Local_Nome', max_length=100, editable=False)
+    grupo = models.ForeignKey(
+        Grupos, db_column='Grupo', on_delete=models.PROTECT,
+        related_name='programacoes_campo', blank=True, null=True,
+    )
+    grupo_nome = models.CharField(
+        db_column='Grupo_Nome', max_length=50, blank=True, editable=False,
+    )
+    descricao = models.CharField(db_column='Descricao', max_length=80, blank=True)
+    tipo_dirigencia = models.CharField(
+        db_column='Tipo_Dirigencia', max_length=1,
+        choices=TIPOS_DIRIGENCIA_CAMPO, default='P',
+    )
+    dirigente = models.ForeignKey(
+        Publicadores, db_column='Dirigente', on_delete=models.PROTECT,
+        related_name='programacoes_dirigidas', blank=True, null=True,
+    )
+    tipo_atividade = models.CharField(
+        db_column='Tipo_Atividade', max_length=1,
+        choices=TIPOS_ATIVIDADE_CAMPO, default='T',
+    )
+    descricao_atividade = models.CharField(
+        db_column='Descricao_Atividade', max_length=100, blank=True,
+        verbose_name='Descrição da atividade',
+    )
+    territorio = models.ForeignKey(
+        TerritorioCampo, db_column='Territorio', on_delete=models.PROTECT,
+        related_name='programacoes', blank=True, null=True,
+    )
+    mapa = models.ForeignKey(
+        MapaTerritorio, db_column='Mapa', on_delete=models.PROTECT,
+        related_name='programacoes', blank=True, null=True,
+    )
+    status = models.CharField(
+        db_column='Status', max_length=1,
+        choices=STATUS_PROGRAMACAO_CAMPO, default='A',
+    )
+    resultado = models.CharField(
+        db_column='Resultado', max_length=1,
+        choices=RESULTADOS_TERRITORIO_CAMPO, blank=True, default='',
+    )
+    retirada_em = models.DateTimeField(db_column='Retirada_Em', blank=True, null=True)
+    retirada_por = models.ForeignKey(
+        User, db_column='Retirada_Por', on_delete=models.PROTECT,
+        related_name='programacoes_campo_retiradas', blank=True, null=True,
+    )
+    devolvida_em = models.DateTimeField(db_column='Devolvida_Em', blank=True, null=True)
+    devolvida_por = models.ForeignKey(
+        User, db_column='Devolvida_Por', on_delete=models.PROTECT,
+        related_name='programacoes_campo_devolvidas', blank=True, null=True,
+    )
+    observacao_movimento = models.TextField(
+        db_column='Observacao_Movimento', blank=True,
+        verbose_name='Observação da movimentação',
+    )
+    motivo_cancelamento = models.TextField(
+        db_column='Motivo_Cancelamento', blank=True,
+        verbose_name='Motivo do cancelamento',
+    )
+
+    class Meta:
+        db_table = 'Campo_Programacao'
+        ordering = ['data', 'horario', 'local_nome', 'grupo_nome']
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(
+                fields=['cong', 'data', 'arranjo'],
+                name='unique_campo_programacao_cong_data_arranjo',
+            ),
+        ]
+
+    def __str__(self):
+        return '%s %s - %s' % (
+            self.data.strftime('%d/%m/%Y'),
+            self.horario.strftime('%H:%M'),
+            self.local_nome,
+        )
+
+    @property
+    def dirigente_exibicao(self):
+        if self.tipo_dirigencia == 'G':
+            return 'Responsabilidade do grupo'
+        return str(self.dirigente) if self.dirigente_id else 'A definir'
+
+    @property
+    def atividade_exibicao(self):
+        if self.tipo_atividade == 'T':
+            return str(self.territorio) if self.territorio_id else 'Território a definir'
+        if self.tipo_atividade == 'C':
+            return 'Cartas'
+        return self.descricao_atividade or 'Outra atividade'
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        original = None
+        if self.pk:
+            original = ProgramacaoCampo.objects.filter(pk=self.pk).values(
+                'status', 'data', 'arranjo_id', 'horario', 'local_id',
+                'grupo_id', 'tipo_dirigencia', 'dirigente_id',
+                'tipo_atividade', 'territorio_id', 'mapa_id',
+            ).first()
+            if original:
+                transicoes = {
+                    'A': {'A', 'P', 'C'},
+                    'P': {'P', 'R', 'C'},
+                    'R': {'R', 'D'},
+                    'D': {'D'},
+                    'C': {'C'},
+                }
+                if self.status not in transicoes[original['status']]:
+                    errors['status'] = 'A transição de situação informada não é permitida.'
+                if original['status'] in {'R', 'D', 'C'}:
+                    protegidos = {
+                        'data': self.data,
+                        'arranjo_id': self.arranjo_id,
+                        'horario': self.horario,
+                        'local_id': self.local_id,
+                        'grupo_id': self.grupo_id,
+                        'tipo_dirigencia': self.tipo_dirigencia,
+                        'dirigente_id': self.dirigente_id,
+                        'tipo_atividade': self.tipo_atividade,
+                        'territorio_id': self.territorio_id,
+                        'mapa_id': self.mapa_id,
+                    }
+                    if any(original[campo] != valor for campo, valor in protegidos.items()):
+                        errors['status'] = 'A programação movimentada não pode mais ser alterada.'
+        elif self.status not in {'A', 'P'}:
+            errors['status'] = 'Uma nova programação deve estar em preparação ou programada.'
+        relacionados = {
+            'arranjo': self.arranjo if self.arranjo_id else None,
+            'local': self.local if self.local_id else None,
+            'grupo': self.grupo if self.grupo_id else None,
+            'dirigente': self.dirigente if self.dirigente_id else None,
+            'territorio': self.territorio if self.territorio_id else None,
+        }
+        for campo, objeto in relacionados.items():
+            if objeto and getattr(objeto, 'cong_id', None) != self.cong_id:
+                errors[campo] = 'O item selecionado pertence a outra congregação.'
+        if self.mapa_id and self.mapa.territorio.cong_id != self.cong_id:
+            errors['mapa'] = 'O mapa pertence a outra congregação.'
+        if self.data and self.arranjo_id and self.data.weekday() != self.arranjo.dia_semana:
+            errors['data'] = 'A data não corresponde ao dia do arranjo.'
+
+        if self.tipo_dirigencia == 'P':
+            if not self.dirigente_id and self.status not in ['A', 'C']:
+                errors['dirigente'] = 'Selecione o dirigente.'
+            dirigente_historico = bool(
+                original
+                and original['status'] in {'P', 'R', 'D', 'C'}
+                and original['dirigente_id'] == self.dirigente_id
+            )
+            if self.dirigente_id and not dirigente_historico and (
+                self.dirigente.situacao != 1 or self.dirigente.privilegio not in [1, 2]
+            ):
+                errors['dirigente'] = 'O dirigente deve ser servo ou ancião ativo.'
+            elif (
+                self.dirigente_id
+                and not dirigente_historico
+                and not DirigenteCampoHabilitado.objects.filter(
+                cong_id=self.cong_id, publicador_id=self.dirigente_id, ativo=True,
+                ).exists()
+            ):
+                errors['dirigente'] = 'O publicador não está habilitado como dirigente.'
+        elif self.tipo_dirigencia == 'G':
+            self.dirigente = None
+            if not self.grupo_id:
+                errors['tipo_dirigencia'] = 'A responsabilidade do grupo exige um grupo.'
+
+        if self.tipo_atividade == 'T':
+            if not self.territorio_id and self.status not in ['A', 'C']:
+                errors['territorio'] = 'Selecione o território.'
+            if not self.mapa_id and self.status not in ['A', 'C']:
+                errors['mapa'] = 'O território precisa possuir um mapa vigente.'
+            elif (
+                self.mapa_id
+                and self.territorio_id
+                and self.mapa.territorio_id != self.territorio_id
+            ):
+                errors['mapa'] = 'O mapa não pertence ao território selecionado.'
+        else:
+            self.territorio = None
+            self.mapa = None
+            if self.tipo_atividade == 'O' and not self.descricao_atividade.strip():
+                errors['descricao_atividade'] = 'Informe a atividade.'
+
+        if self.tipo_dirigencia == 'P' and self.dirigente_id and self.data and self.horario:
+            conflitos = ProgramacaoCampo.objects.filter(
+                cong_id=self.cong_id,
+                data=self.data,
+                horario=self.horario,
+                dirigente_id=self.dirigente_id,
+            ).exclude(status='C')
+            if self.pk:
+                conflitos = conflitos.exclude(pk=self.pk)
+            if conflitos.exists():
+                errors['dirigente'] = 'O dirigente já está escalado nesse horário.'
+
+        if self.status == 'C' and not self.motivo_cancelamento.strip():
+            errors['motivo_cancelamento'] = 'Informe o motivo do cancelamento.'
+        if self.status in {'R', 'D'} and (not self.retirada_em or not self.retirada_por_id):
+            errors['status'] = 'A retirada precisa estar registrada.'
+        if self.status == 'D' and not self.resultado:
+            errors['resultado'] = 'Informe o resultado da devolução.'
+        if self.status == 'D' and (not self.devolvida_em or not self.devolvida_por_id):
+            errors['status'] = 'A devolução precisa estar registrada.'
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.arranjo_id and not self.pk:
+            self.horario = self.arranjo.horario
+            self.local = self.arranjo.local
+            self.grupo = self.arranjo.grupo
+            self.descricao = self.arranjo.descricao
+        original = None
+        if self.pk:
+            original = ProgramacaoCampo.objects.filter(pk=self.pk).values(
+                'local_id', 'grupo_id'
+            ).first()
+        if self.local_id and (
+            not self.local_nome
+            or not self.pk
+            or (original and original['local_id'] != self.local_id)
+        ):
+            self.local_nome = self.local.nome
+        if self.grupo_id and (
+            not self.grupo_nome
+            or not self.pk
+            or (original and original['grupo_id'] != self.grupo_id)
+        ):
+            self.grupo_nome = self.grupo.grupo
+        elif not self.grupo_id:
+            self.grupo_nome = ''
         self.full_clean()
         return super().save(*args, **kwargs)

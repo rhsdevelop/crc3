@@ -1,10 +1,90 @@
 from django.urls import path
 
-from . import views
+from . import campo_views, views
 
 app_name = 'ss_activities'
 
 urlpatterns = [
+    path(
+        'servico-campo/',
+        campo_views.painel_servico_campo,
+        name='painel_servico_campo',
+    ),
+    path(
+        'servico-campo/semana/gerar/',
+        campo_views.gerar_semana_servico_campo,
+        name='gerar_semana_servico_campo',
+    ),
+    path(
+        'servico-campo/programacoes/<int:programacao_id>/editar/',
+        campo_views.editar_programacao_campo,
+        name='editar_programacao_campo',
+    ),
+    path(
+        'servico-campo/programacoes/<int:programacao_id>/movimentar/',
+        campo_views.movimentar_programacao_campo,
+        name='movimentar_programacao_campo',
+    ),
+    path(
+        'servico-campo/dirigentes/',
+        campo_views.list_dirigentes_campo,
+        name='list_dirigentes_campo',
+    ),
+    path(
+        'servico-campo/dirigentes/<int:item_id>/editar/',
+        campo_views.edit_dirigente_campo,
+        name='edit_dirigente_campo',
+    ),
+    path(
+        'servico-campo/locais/',
+        campo_views.list_locais_campo,
+        name='list_locais_campo',
+    ),
+    path(
+        'servico-campo/locais/<int:item_id>/editar/',
+        campo_views.edit_local_campo,
+        name='edit_local_campo',
+    ),
+    path(
+        'servico-campo/arranjos/',
+        campo_views.list_arranjos_campo,
+        name='list_arranjos_campo',
+    ),
+    path(
+        'servico-campo/arranjos/<int:item_id>/editar/',
+        campo_views.edit_arranjo_campo,
+        name='edit_arranjo_campo',
+    ),
+    path(
+        'servico-campo/territorios/',
+        campo_views.list_territorios_campo,
+        name='list_territorios_campo',
+    ),
+    path(
+        'servico-campo/territorios/<int:item_id>/editar/',
+        campo_views.edit_territorio_campo,
+        name='edit_territorio_campo',
+    ),
+    path(
+        'servico-campo/territorios/<int:territorio_id>/mapas/',
+        campo_views.upload_mapa_territorio,
+        name='upload_mapa_territorio',
+    ),
+    path(
+        'servico-campo/mapas/<int:mapa_id>/',
+        campo_views.baixar_mapa_territorio,
+        name='baixar_mapa_territorio',
+    ),
+    path(
+        'servico-campo/distribuicao/',
+        campo_views.distribuicao_territorios,
+        name='distribuicao_territorios',
+    ),
+    path(
+        'servico-campo/pdf/',
+        campo_views.pdf_servico_campo,
+        name='pdf_servico_campo',
+    ),
     path('visitas-grupos/', views.list_visitas_grupos, name='list_visitas_grupos'),
     path(
         'visitas-grupos/adicionar/',

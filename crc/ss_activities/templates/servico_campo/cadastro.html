@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="mb-3"><a class="btn btn-secondary" href="{% url 'ss_activities:painel_servico_campo' %}?cong={{ selected_cong.id }}"><span class="fas fa-arrow-left"></span> Voltar ao painel</a></div>
+{% if selected_cong %}
+<div class="row">
+  <div class="col-lg-4">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">{% if item_edicao %}Editar{% else %}Adicionar{% endif %}</h6></div>
+      <div class="card-body">
+        <form method="post">{% csrf_token %}<input type="hidden" name="cong" value="{{ selected_cong.id }}">{% bootstrap_form form %}<button class="btn btn-primary" type="submit">Salvar</button>{% if item_edicao %} <a class="btn btn-secondary" href="../{% if tipo == 'territorios' %}../{% endif %}?cong={{ selected_cong.id }}">Cancelar</a>{% endif %}</form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">{{ title }}</h6></div>
+      <div class="card-body"><div class="table-responsive"><table class="table table-bordered table-sm">
+        <thead><tr>
+          {% if tipo == 'dirigentes' %}<th>Publicador</th><th>Situação</th>
+          {% elif tipo == 'locais' %}<th>Nome</th><th>Referência</th><th>Situação</th>
+          {% elif tipo == 'arranjos' %}<th>Dia</th><th>Horário</th><th>Local</th><th>Grupo</th><th>Situação</th>
+          {% else %}<th>Código</th><th>Localidade</th><th>Mapa vigente</th><th>Situação</th>{% endif %}
+          <th>Ações</th>
+        </tr></thead>
+        <tbody>{% for item in itens %}<tr>
+          {% if tipo == 'dirigentes' %}<td>{{ item.publicador }}</td><td>{% if item.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+          {% elif tipo == 'locais' %}<td>{{ item.nome }}</td><td>{{ item.endereco_referencia|default:'-' }}</td><td>{% if item.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+          {% elif tipo == 'arranjos' %}<td>{{ item.get_dia_semana_display }}</td><td>{{ item.horario|time:'H:i' }}</td><td>{{ item.local }}</td><td>{{ item.grupo|default:'-' }}</td><td>{% if item.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+          {% else %}<td>{{ item.codigo }}</td><td>{{ item.localidade }}</td><td>{% for mapa in item.mapas.all %}{% if mapa.vigente %}<a target="_blank" href="{% url 'ss_activities:baixar_mapa_territorio' mapa.id %}?cong={{ selected_cong.id }}">Versão {{ mapa.versao }}</a>{% endif %}{% empty %}Sem mapa{% endfor %}</td><td>{% if item.ativo %}Ativo{% else %}Inativo{% endif %}</td>{% endif %}
+          <td class="text-nowrap">
+            <a class="btn btn-info btn-sm" href="{% if tipo == 'dirigentes' %}{% url 'ss_activities:edit_dirigente_campo' item.id %}{% elif tipo == 'locais' %}{% url 'ss_activities:edit_local_campo' item.id %}{% elif tipo == 'arranjos' %}{% url 'ss_activities:edit_arranjo_campo' item.id %}{% else %}{% url 'ss_activities:edit_territorio_campo' item.id %}{% endif %}?cong={{ selected_cong.id }}"><span class="fas fa-pen"></span></a>
+            {% if tipo == 'territorios' %}<button class="btn btn-primary btn-sm mapa-button" type="button" data-toggle="modal" data-target="#mapaModal" data-url="{% url 'ss_activities:upload_mapa_territorio' item.id %}" data-nome="{{ item }}"><span class="fas fa-upload"></span></button>{% endif %}
+          </td>
+        </tr>{% empty %}<tr><td colspan="7" class="text-center">Nenhum cadastro encontrado.</td></tr>{% endfor %}</tbody>
+      </table></div></div>
+    </div>
+  </div>
+</div>
+{% if tipo == 'territorios' %}
+<div class="modal fade" id="mapaModal" tabindex="-1" role="dialog" aria-hidden="true"><div class="modal-dialog" role="document"><div class="modal-content">
+  <form id="mapaForm" method="post" enctype="multipart/form-data">{% csrf_token %}<input type="hidden" name="cong" value="{{ selected_cong.id }}">
+    <div class="modal-header"><h5 class="modal-title">Enviar mapa</h5><button class="close" type="button" data-dismiss="modal"><span>&times;</span></button></div>
+    <div class="modal-body"><p id="mapaTerritorio"></p>{% bootstrap_form mapa_form %}<small class="form-text text-muted">JPEG, PNG ou WebP, até 10 MB. O mapa atual continuará preservado no histórico.</small></div>
+    <div class="modal-footer"><button class="btn btn-secondary" type="button" data-dismiss="modal">Cancelar</button><button class="btn btn-primary" type="submit">Enviar</button></div>
+  </form>
+</div></div></div>
+{% endif %}
+{% elif request.user.is_superuser %}<div class="alert alert-info">Selecione uma congregação no painel do Serviço de Campo.</div>{% endif %}
+{% endblock %}
+
+{% block js %}{% if tipo == 'territorios' %}<script>$(function(){$('.mapa-button').on('click',function(){$('#mapaForm').attr('action',$(this).data('url'));$('#mapaTerritorio').text($(this).data('nome'));});});</script>{% endif %}{% endblock %}

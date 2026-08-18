@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block corpo %}
+<div class="mb-3"><a class="btn btn-secondary" href="{% url 'ss_activities:painel_servico_campo' %}?cong={{ selected_cong.id }}"><span class="fas fa-arrow-left"></span> Voltar ao painel</a></div>
+{% if selected_cong %}
+<div class="card shadow mb-4"><div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Filtros</h6></div><div class="card-body">
+  <form method="get"><input type="hidden" name="cong" value="{{ selected_cong.id }}"><div class="form-row">
+    <div class="col-md-2"><label>Início</label><input class="form-control" type="date" name="inicio" value="{{ filtros.inicio }}"></div>
+    <div class="col-md-2"><label>Fim</label><input class="form-control" type="date" name="fim" value="{{ filtros.fim }}"></div>
+    <div class="col-md-2"><label>Território</label><select class="form-control" name="territorio"><option value="">Todos</option>{% for item in territorios %}<option value="{{ item.id }}"{% if filtros.territorio == item.id|stringformat:'s' %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label>Grupo</label><select class="form-control" name="grupo"><option value="">Todos</option>{% for item in grupos %}<option value="{{ item.id }}"{% if filtros.grupo == item.id|stringformat:'s' %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label>Dirigente</label><select class="form-control" name="dirigente"><option value="">Todos</option>{% for item in dirigentes %}<option value="{{ item.id }}"{% if filtros.dirigente == item.id|stringformat:'s' %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="col-md-2"><label>Local</label><select class="form-control" name="local"><option value="">Todos</option>{% for item in locais %}<option value="{{ item.id }}"{% if filtros.local == item.id|stringformat:'s' %} selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 mt-2"><label>Situação</label><select class="form-control" name="status"><option value="">Todas</option>{% for valor,nome in status_choices %}<option value="{{ valor }}"{% if filtros.status == valor %} selected{% endif %}>{{ nome }}</option>{% endfor %}</select></div>
+    <div class="col-md-2 mt-2"><label>Resultado</label><select class="form-control" name="resultado"><option value="">Todos</option>{% for valor,nome in resultado_choices %}{% if valor %}<option value="{{ valor }}"{% if filtros.resultado == valor %} selected{% endif %}>{{ nome }}</option>{% endif %}{% endfor %}</select></div>
+    <div class="col-md-2 mt-2 align-self-end"><button class="btn btn-primary" type="submit">Filtrar</button> <a class="btn btn-light" href="?cong={{ selected_cong.id }}">Limpar</a></div>
+  </div></form>
+</div></div>
+<div class="card shadow mb-4"><div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Distribuição e histórico</h6></div><div class="card-body"><div class="table-responsive"><table class="table table-bordered table-sm">
+  <thead><tr><th>Data</th><th>Horário</th><th>Território/atividade</th><th>Grupo</th><th>Local</th><th>Dirigente</th><th>Situação</th><th>Resultado</th><th>Mapa</th></tr></thead>
+  <tbody>{% for item in itens %}<tr><td>{{ item.data|date:'d/m/Y' }}</td><td>{{ item.horario|time:'H:i' }}</td><td>{{ item.atividade_exibicao }}</td><td>{{ item.grupo_nome|default:'-' }}</td><td>{{ item.local_nome }}</td><td>{{ item.dirigente_exibicao }}</td><td>{{ item.get_status_display }}</td><td>{{ item.get_resultado_display|default:'-' }}</td><td>{% if item.mapa_id %}<a target="_blank" href="{% url 'ss_activities:baixar_mapa_territorio' item.mapa_id %}?cong={{ selected_cong.id }}">Abrir</a>{% else %}-{% endif %}</td></tr>{% empty %}<tr><td colspan="9" class="text-center">Nenhuma distribuição encontrada.</td></tr>{% endfor %}</tbody>
+</table></div></div></div>
+{% elif request.user.is_superuser %}<div class="alert alert-info">Selecione uma congregação no painel do Serviço de Campo.</div>{% endif %}
+{% endblock %}

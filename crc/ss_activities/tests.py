@@ -1,26 +1,37 @@
 import datetime
+import io
+import tempfile
 
 from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from register.models import Cong, CongUser, Grupos, Publicadores
 
 from .forms import limites_ano_servico
 from .models import (
+    ArranjoSaidaCampo,
     CarrinhoTestemunhoPublico,
     ConfiguracaoTestemunhoPublico,
     DesignacaoTestemunhoPublico,
     HabilitacaoTestemunhoPublico,
     LocalTestemunhoPublico,
+    DirigenteCampoHabilitado,
+    LocalSaidaCampo,
+    MapaTerritorio,
+    ProgramacaoCampo,
+    TerritorioCampo,
     PeriodoTestemunhoPublico,
     VisitaGrupo,
     VisitaPastoreio,
     numero_para_letras,
 )
 from .views import ano_servico_atual, semana_testemunho_publico
+from .campo_services import gerar_programacao_semana, movimentar_programacao
 
 
 class VisitaGrupoTests(TestCase):
@@ -1505,3 +1516,377 @@ class TestemunhoPublicoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('Eduardo / Fernanda', conteudo)
         self.assertNotIn('Ana / Beatriz', conteudo)
+
+
+class ServicoCampoTests(TestCase):
+    def setUp(self):
+        self.media = tempfile.TemporaryDirectory()
+        self.media_override = override_settings(PRIVATE_MEDIA_ROOT=self.media.name)
+        self.media_override.enable()
+        self.cong_a = Cong.objects.create(nome='Congregação Campo A', numero=301)
+        self.cong_b = Cong.objects.create(nome='Congregação Campo B', numero=302)
+        self.grupo_a = Grupos.objects.create(
+            grupo='Grupo A', dirigente='Dirigente A', cong=self.cong_a
+        )
+        self.grupo_b = Grupos.objects.create(
+            grupo='Grupo B', dirigente='Dirigente B', cong=self.cong_b
+        )
+        self.anciao = self.criar_publicador('João Dirigente', self.grupo_a, 2)
+        self.servo = self.criar_publicador('José Ajudante', self.grupo_a, 1)
+        self.publicador = self.criar_publicador('Pedro Publicador', self.grupo_a, 0)
+        self.anciao_b = self.criar_publicador('Outro Ancião', self.grupo_b, 2)
+        self.usuario_ss = User.objects.create_user('campo_ss', password='senha')
+        self.usuario_territorio = User.objects.create_user('campo_territorio', password='senha')
+        self.usuario_sem = User.objects.create_user('campo_sem', password='senha')
+        self.usuario_b = User.objects.create_user('campo_b', password='senha')
+        self.superuser = User.objects.create_superuser('campo_admin', password='senha')
+        CongUser.objects.create(cong=self.cong_a, user=self.usuario_ss)
+        CongUser.objects.create(cong=self.cong_a, user=self.usuario_territorio)
+        CongUser.objects.create(cong=self.cong_a, user=self.usuario_sem)
+        CongUser.objects.create(cong=self.cong_b, user=self.usuario_b)
+        permissao_programacao = Permission.objects.get(
+            content_type__app_label='ss_activities', codename='manage_programacao_campo'
+        )
+        permissao_territorios = Permission.objects.get(
+            content_type__app_label='ss_activities', codename='manage_territorios'
+        )
+        self.usuario_ss.user_permissions.add(permissao_programacao)
+        self.usuario_territorio.user_permissions.add(permissao_territorios)
+        self.usuario_b.user_permissions.add(permissao_programacao)
+        self.local = LocalSaidaCampo.objects.create(
+            cong=self.cong_a, nome='Salão do Reino'
+        )
+        self.local_2 = LocalSaidaCampo.objects.create(
+            cong=self.cong_a, nome='Casa do irmão'
+        )
+        self.arranjo = ArranjoSaidaCampo.objects.create(
+            cong=self.cong_a, dia_semana=0, horario=datetime.time(9),
+            local=self.local, descricao='Manhã'
+        )
+        self.semana = datetime.date(2026, 8, 17)
+        self.habilitacao = DirigenteCampoHabilitado.objects.create(
+            cong=self.cong_a, publicador=self.anciao
+        )
+        self.habilitacao_servo = DirigenteCampoHabilitado.objects.create(
+            cong=self.cong_a, publicador=self.servo
+        )
+        self.territorio = TerritorioCampo.objects.create(
+            cong=self.cong_a, codigo='T.14', localidade='Parque dos Pinus'
+        )
+        self.mapa = self.criar_mapa(self.territorio)
+
+    def tearDown(self):
+        self.media_override.disable()
+        self.media.cleanup()
+
+    def criar_publicador(self, nome, grupo, privilegio):
+        return Publicadores.objects.create(
+            nome=nome, endereco='Rua', esperanca=0, privilegio=privilegio,
+            tipo=0, sexo=0, situacao=1, classe='0', grupo=grupo, cong=grupo.cong,
+        )
+
+    def arquivo_imagem(self, nome='mapa.png', formato='PNG'):
+        buffer = io.BytesIO()
+        Image.new('RGB', (20, 20), '#f6e965').save(buffer, formato)
+        return SimpleUploadedFile(nome, buffer.getvalue(), content_type='image/png')
+
+    def criar_mapa(self, territorio, nome='mapa.png'):
+        return MapaTerritorio.objects.create(
+            territorio=territorio, arquivo=self.arquivo_imagem(nome)
+        )
+
+    def criar_programacao(self, **kwargs):
+        dados = {
+            'cong': self.cong_a,
+            'data': self.semana,
+            'arranjo': self.arranjo,
+            'horario': self.arranjo.horario,
+            'local': self.local,
+            'local_nome': self.local.nome,
+            'tipo_dirigencia': 'P',
+            'dirigente': self.anciao,
+            'tipo_atividade': 'T',
+            'territorio': self.territorio,
+            'mapa': self.mapa,
+            'status': 'P',
+        }
+        dados.update(kwargs)
+        return ProgramacaoCampo.objects.create(**dados)
+
+    def test_permissoes_controlam_menu_e_rotas(self):
+        painel = reverse('ss_activities:painel_servico_campo')
+        self.client.force_login(self.usuario_sem)
+        self.assertEqual(self.client.get(painel).status_code, 403)
+        self.assertNotContains(self.client.get('/'), 'Serviço de Campo')
+
+        self.client.force_login(self.usuario_ss)
+        self.assertContains(self.client.get('/'), 'Serviço de Campo')
+        self.assertEqual(self.client.get(painel).status_code, 200)
+
+        self.client.force_login(self.usuario_territorio)
+        self.assertEqual(self.client.get(painel).status_code, 200)
+        self.assertEqual(
+            self.client.get(reverse('ss_activities:list_arranjos_campo')).status_code,
+            403,
+        )
+
+    def test_habilitacao_aceita_apenas_servo_ou_anciao_ativo_da_congregacao(self):
+        with self.assertRaises(ValidationError):
+            DirigenteCampoHabilitado.objects.create(
+                cong=self.cong_a, publicador=self.publicador
+            )
+        with self.assertRaises(ValidationError):
+            DirigenteCampoHabilitado.objects.create(
+                cong=self.cong_a, publicador=self.anciao_b
+            )
+
+    def test_geracao_semanal_e_idempotente_e_preserva_snapshot(self):
+        segundo = ArranjoSaidaCampo.objects.create(
+            cong=self.cong_a, dia_semana=3, horario=datetime.time(16, 30),
+            local=self.local_2, grupo=self.grupo_a, descricao='Cartas'
+        )
+        self.assertEqual(
+            gerar_programacao_semana(self.cong_a, self.semana, self.usuario_ss), 2
+        )
+        self.assertEqual(
+            gerar_programacao_semana(self.cong_a, self.semana, self.usuario_ss), 0
+        )
+        item = ProgramacaoCampo.objects.get(arranjo=segundo)
+        self.assertEqual(item.data, datetime.date(2026, 8, 20))
+        self.assertEqual(item.local_nome, 'Casa do irmão')
+        self.assertEqual(item.grupo_nome, 'Grupo A')
+        self.local_2.nome = 'Local alterado'
+        self.local_2.save()
+        item.refresh_from_db()
+        self.assertEqual(item.local_nome, 'Casa do irmão')
+
+    def test_responsabilidade_do_grupo_e_conflito_de_dirigente(self):
+        domingo = ArranjoSaidaCampo.objects.create(
+            cong=self.cong_a, dia_semana=6, horario=datetime.time(9),
+            local=self.local, grupo=self.grupo_a
+        )
+        grupo = self.criar_programacao(
+            arranjo=domingo,
+            data=self.semana + datetime.timedelta(days=6),
+            tipo_dirigencia='G',
+            dirigente=None,
+        )
+        self.assertEqual(grupo.dirigente_exibicao, 'Responsabilidade do grupo')
+
+        self.criar_programacao()
+        outro_arranjo = ArranjoSaidaCampo.objects.create(
+            cong=self.cong_a, dia_semana=0, horario=datetime.time(9),
+            local=self.local_2
+        )
+        with self.assertRaises(ValidationError):
+            self.criar_programacao(arranjo=outro_arranjo, local=self.local_2)
+
+    def test_mesmo_territorio_pode_ser_distribuido_para_arranjos_diferentes(self):
+        self.criar_programacao()
+        outro_arranjo = ArranjoSaidaCampo.objects.create(
+            cong=self.cong_a, dia_semana=0, horario=datetime.time(9),
+            local=self.local_2, grupo=self.grupo_a
+        )
+        segunda = self.criar_programacao(
+            arranjo=outro_arranjo,
+            local=self.local_2,
+            dirigente=self.servo,
+        )
+        self.assertEqual(segunda.territorio, self.territorio)
+
+    def test_mapas_sao_versionados_sem_apagar_historico(self):
+        novo = self.criar_mapa(self.territorio, 'mapa-novo.png')
+        self.mapa.refresh_from_db()
+        self.assertFalse(self.mapa.vigente)
+        self.assertTrue(novo.vigente)
+        self.assertEqual(novo.versao, 2)
+        self.assertEqual(self.territorio.mapas.count(), 2)
+
+    def test_upload_recusa_arquivo_que_nao_e_imagem(self):
+        invalido = MapaTerritorio(
+            territorio=self.territorio,
+            arquivo=SimpleUploadedFile('mapa.jpg', b'nao e imagem', 'image/jpeg'),
+        )
+        with self.assertRaises(ValidationError):
+            invalido.save()
+
+    def test_download_do_mapa_e_protegido_por_congregacao(self):
+        url = reverse('ss_activities:baixar_mapa_territorio', args=[self.mapa.id])
+        self.client.force_login(self.usuario_territorio)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['X-Content-Type-Options'], 'nosniff')
+
+        territorio_b = TerritorioCampo.objects.create(
+            cong=self.cong_b, codigo='B1', localidade='Bairro B'
+        )
+        mapa_b = self.criar_mapa(territorio_b, 'mapa-b.png')
+        self.assertEqual(
+            self.client.get(
+                reverse('ss_activities:baixar_mapa_territorio', args=[mapa_b.id])
+            ).status_code,
+            404,
+        )
+
+    def test_upload_por_rota_versiona_mapa_e_registra_auditoria(self):
+        self.client.force_login(self.usuario_territorio)
+        response = self.client.post(
+            reverse(
+                'ss_activities:upload_mapa_territorio',
+                args=[self.territorio.id],
+            ),
+            {'arquivo': self.arquivo_imagem('versao-2.png')},
+        )
+        self.assertEqual(response.status_code, 302)
+        novo = self.territorio.mapas.get(versao=2)
+        self.mapa.refresh_from_db()
+        self.assertFalse(self.mapa.vigente)
+        self.assertTrue(novo.vigente)
+        self.assertEqual(novo.create_user, self.usuario_territorio)
+        self.assertEqual(novo.assign_user, self.usuario_territorio)
+
+        self.client.force_login(self.usuario_sem)
+        self.assertEqual(
+            self.client.post(
+                reverse(
+                    'ss_activities:upload_mapa_territorio',
+                    args=[self.territorio.id],
+                ),
+                {'arquivo': self.arquivo_imagem('sem-permissao.png')},
+            ).status_code,
+            403,
+        )
+
+    def test_movimentacao_valida_transicoes_e_auditoria(self):
+        item = self.criar_programacao()
+        movimentar_programacao(item.id, self.cong_a, self.usuario_territorio, 'retirar')
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'R')
+        self.assertEqual(item.retirada_por, self.usuario_territorio)
+        self.assertIsNotNone(item.retirada_em)
+        movimentar_programacao(
+            item.id, self.cong_a, self.usuario_territorio,
+            'devolver', resultado='C', observacao='Território coberto.'
+        )
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'D')
+        self.assertEqual(item.resultado, 'C')
+        self.assertEqual(item.devolvida_por, self.usuario_territorio)
+        with self.assertRaises(ValidationError):
+            movimentar_programacao(item.id, self.cong_a, self.usuario_ss, 'cancelar', observacao='x')
+
+    def test_edicao_por_rota_completa_programacao_e_registra_auditoria(self):
+        gerar_programacao_semana(self.cong_a, self.semana, self.usuario_ss)
+        item = ProgramacaoCampo.objects.get()
+        self.client.force_login(self.usuario_ss)
+        response = self.client.post(
+            reverse('ss_activities:editar_programacao_campo', args=[item.id]),
+            {
+                'semana': self.semana.isoformat(),
+                'horario': '09:00',
+                'local': self.local.id,
+                'grupo': '',
+                'descricao': 'Manhã',
+                'tipo_dirigencia': 'P',
+                'dirigente': self.anciao.id,
+                'tipo_atividade': 'T',
+                'territorio': self.territorio.id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'P')
+        self.assertEqual(item.mapa, self.mapa)
+        self.assertEqual(item.assign_user, self.usuario_ss)
+
+    def test_ajuste_pontual_de_horario_e_local_atualiza_snapshot(self):
+        item = self.criar_programacao()
+        self.client.force_login(self.usuario_ss)
+        response = self.client.post(
+            reverse('ss_activities:editar_programacao_campo', args=[item.id]),
+            {
+                'semana': self.semana.isoformat(),
+                'horario': '16:30',
+                'local': self.local_2.id,
+                'grupo': self.grupo_a.id,
+                'descricao': 'Exceção da semana',
+                'tipo_dirigencia': 'P',
+                'dirigente': self.anciao.id,
+                'tipo_atividade': 'T',
+                'territorio': self.territorio.id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.horario, datetime.time(16, 30))
+        self.assertEqual(item.local_nome, 'Casa do irmão')
+        self.assertEqual(item.grupo_nome, 'Grupo A')
+
+    def test_responsavel_de_territorios_nao_altera_dirigente(self):
+        item = self.criar_programacao()
+        self.client.force_login(self.usuario_territorio)
+        response = self.client.post(
+            reverse('ss_activities:editar_programacao_campo', args=[item.id]),
+            {
+                'semana': self.semana.isoformat(),
+                'tipo_dirigencia': 'P',
+                'dirigente': self.servo.id,
+                'tipo_atividade': 'T',
+                'territorio': self.territorio.id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.dirigente, self.anciao)
+
+    def test_responsavel_territorios_nao_pode_cancelar(self):
+        item = self.criar_programacao()
+        self.client.force_login(self.usuario_territorio)
+        response = self.client.post(
+            reverse('ss_activities:movimentar_programacao_campo', args=[item.id]),
+            {'semana': self.semana.isoformat(), 'acao': 'cancelar', 'observacao': 'Erro'},
+        )
+        self.assertEqual(response.status_code, 403)
+        item.refresh_from_db()
+        self.assertEqual(item.status, 'P')
+
+    def test_distribuicao_filtra_territorio_e_resultado(self):
+        item = self.criar_programacao()
+        movimentar_programacao(item.id, self.cong_a, self.usuario_territorio, 'retirar')
+        movimentar_programacao(
+            item.id, self.cong_a, self.usuario_territorio, 'devolver', resultado='P'
+        )
+        item.refresh_from_db()
+        outro = TerritorioCampo.objects.create(
+            cong=self.cong_a, codigo='T.15', localidade='Centro'
+        )
+        self.client.force_login(self.usuario_territorio)
+        response = self.client.get(
+            reverse('ss_activities:distribuicao_territorios'),
+            {'territorio': self.territorio.id, 'resultado': 'P'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(item, list(response.context['itens']))
+        self.assertEqual(response.context['itens'].count(), 1)
+        self.assertContains(response, 'T.14')
+        self.assertIsNotNone(outro.pk)
+
+    def test_pdf_semanal_e_valido_e_semana_vazia_tambem(self):
+        self.criar_programacao()
+        self.client.force_login(self.usuario_ss)
+        url = reverse('ss_activities:pdf_servico_campo')
+        response = self.client.get(url, {'semana': '2026-08-19'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertIn('servico-campo-2026-08-17.pdf', response['Content-Disposition'])
+        vazio = self.client.get(url, {'semana': '2027-01-04'})
+        self.assertEqual(vazio.status_code, 200)
+        self.assertTrue(vazio.content.startswith(b'%PDF-'))
+
+    def test_superusuario_precisa_selecionar_e_respeita_congregacao(self):
+        self.client.force_login(self.superuser)
+        painel = reverse('ss_activities:painel_servico_campo')
+        self.assertEqual(self.client.get(painel).status_code, 200)
+        response = self.client.get(painel, {'cong': self.cong_a.id})
+        self.assertEqual(response.context['selected_cong'], self.cong_a)
