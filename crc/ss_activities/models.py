@@ -820,8 +820,8 @@ class DirigenteCampoHabilitado(AuditoriaTestemunhoPublico):
             errors['publicador'] = 'O publicador pertence a outra congregação.'
         elif self.publicador.situacao != 1:
             errors['publicador'] = 'O dirigente deve ser um publicador ativo.'
-        elif self.publicador.privilegio not in [1, 2]:
-            errors['publicador'] = 'O dirigente deve ser servo ministerial ou ancião.'
+        elif self.publicador.sexo != 0:
+            errors['publicador'] = 'O dirigente deve ser um homem ativo.'
         if errors:
             raise ValidationError(errors)
 
@@ -1165,9 +1165,9 @@ class ProgramacaoCampo(AuditoriaTestemunhoPublico):
                 and original['dirigente_id'] == self.dirigente_id
             )
             if self.dirigente_id and not dirigente_historico and (
-                self.dirigente.situacao != 1 or self.dirigente.privilegio not in [1, 2]
+                self.dirigente.situacao != 1 or self.dirigente.sexo != 0
             ):
-                errors['dirigente'] = 'O dirigente deve ser servo ou ancião ativo.'
+                errors['dirigente'] = 'O dirigente deve ser um homem ativo.'
             elif (
                 self.dirigente_id
                 and not dirigente_historico

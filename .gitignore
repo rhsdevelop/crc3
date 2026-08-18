@@ -169,3 +169,4 @@ crc/ss_activities/migrations/
 crc/ss_activities/migrations/*.py
 salao.db
 staticfiles/
+crc/private_media/

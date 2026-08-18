@@ -1630,11 +1630,28 @@ class ServicoCampoTests(TestCase):
             403,
         )
 
-    def test_habilitacao_aceita_apenas_servo_ou_anciao_ativo_da_congregacao(self):
+    def test_habilitacao_aceita_homens_ativos_da_congregacao(self):
+        habilitacao_publicador = DirigenteCampoHabilitado.objects.create(
+            cong=self.cong_a, publicador=self.publicador
+        )
+        self.assertEqual(habilitacao_publicador.publicador, self.publicador)
+
+        publicadora = self.criar_publicador('Maria Publicadora', self.grupo_a, 0)
+        publicadora.sexo = 1
+        publicadora.save()
         with self.assertRaises(ValidationError):
             DirigenteCampoHabilitado.objects.create(
-                cong=self.cong_a, publicador=self.publicador
+                cong=self.cong_a, publicador=publicadora
             )
+
+        inativo = self.criar_publicador('Paulo Inativo', self.grupo_a, 0)
+        inativo.situacao = 0
+        inativo.save()
+        with self.assertRaises(ValidationError):
+            DirigenteCampoHabilitado.objects.create(
+                cong=self.cong_a, publicador=inativo
+            )
+
         with self.assertRaises(ValidationError):
             DirigenteCampoHabilitado.objects.create(
                 cong=self.cong_a, publicador=self.anciao_b

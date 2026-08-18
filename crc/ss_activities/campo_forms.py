@@ -26,11 +26,11 @@ class DirigenteCampoHabilitadoForm(forms.ModelForm):
         publicadores = Publicadores.objects.none()
         if cong:
             publicadores = Publicadores.objects.filter(
-                cong=cong, situacao=1, privilegio__in=[1, 2]
+                cong=cong, situacao=1, sexo=0
             )
             if self.instance.pk:
                 publicadores = Publicadores.objects.filter(cong=cong).filter(
-                    Q(situacao=1, privilegio__in=[1, 2])
+                    Q(situacao=1, sexo=0)
                     | Q(pk=self.instance.publicador_id)
                 )
         self.fields['publicador'].queryset = publicadores.order_by('nome')
@@ -158,7 +158,7 @@ class ProgramacaoCampoForm(forms.ModelForm):
                 cong=cong, ativo=True
             ).values_list('publicador_id', flat=True)
             dirigentes = Publicadores.objects.filter(
-                pk__in=habilitados, situacao=1, privilegio__in=[1, 2]
+                pk__in=habilitados, situacao=1, sexo=0
             )
             if self.instance.pk and self.instance.dirigente_id:
                 dirigentes = Publicadores.objects.filter(cong=cong).filter(
