@@ -162,6 +162,8 @@ cython_debug/
 #.idea/
 
 **/migrations/*
+crc/notebooks/migrations/
+crc/notebooks/migrations/*.py
 crc/register/migrations/
 crc/register/migrations/__init__.py
 crc/register/migrations/*.py

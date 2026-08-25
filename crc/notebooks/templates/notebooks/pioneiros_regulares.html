@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load bootstrap4 %}
+
+{% block corpo %}
+<div class="card shadow mb-4">
+  <div class="card-body">
+    <form class="form-row align-items-end" method="get">
+      {% if request.user.is_superuser %}
+      <div class="form-group col-md-5 mb-md-0">
+        <label for="id_cong_filtro">Congregação</label>
+        <select class="form-control" id="id_cong_filtro" name="cong">
+          <option value="">Selecione uma congregação</option>
+          {% for congregacao in list_cong %}
+          <option value="{{ congregacao.id }}"{% if selected_cong.id == congregacao.id %} selected{% endif %}>{{ congregacao }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="form-group col-md-3 mb-md-0">
+        <label for="id_ano_filtro">Ano de serviço</label>
+        <select class="form-control" id="id_ano_filtro" name="ano">
+          {% for opcao in anos %}
+          <option value="{{ opcao.valor }}"{% if opcao.valor == ano %} selected{% endif %}>{{ opcao.rotulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group col-md-auto mb-0">
+        <button class="btn btn-primary" type="submit"><span class="fas fa-filter"></span> Aplicar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_cong %}
+<div class="row">
+  <div class="col-xl-4 col-lg-5">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Capa e meta anual</h6>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">Configure a imagem utilizada no ano de serviço {{ ano_exibicao }} e a meta mensal dos pioneiros.</p>
+        {% if configuracao.imagem %}
+        <div class="mb-3 caderno-imagem-preview">
+          <img class="img-fluid rounded border" src="{% url 'notebooks:visualizar_imagem' configuracao.id %}?cong={{ selected_cong.id }}" alt="Imagem da capa de {{ ano_exibicao }}">
+        </div>
+        {% else %}
+        <div class="alert alert-info">Envie uma imagem para liberar a impressão das capas.</div>
+        {% endif %}
+        <form method="post" action="{% url 'notebooks:salvar_configuracao' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="ano" value="{{ ano }}">
+          <input type="hidden" name="cong" value="{{ selected_cong.id }}">
+          {% bootstrap_form form %}
+          {% if configuracao %}<small class="form-text text-muted mb-3">Deixe a imagem em branco para manter a capa atual.</small>{% endif %}
+          <button class="btn btn-primary" type="submit"><span class="fas fa-save"></span> Salvar configuração</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow mb-4">
+      <div class="card-body">
+        <h6 class="font-weight-bold text-primary">Impressão do miolo</h6>
+        <p class="small text-muted mb-3">O miolo é igual para todos os pioneiros e contém a abertura mais os 12 meses do ano de serviço.</p>
+        <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{% url 'notebooks:pdf_miolo' %}?ano={{ ano }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-file-pdf"></span> Imprimir miolo</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8 col-lg-7">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap">
+        <h6 class="m-0 font-weight-bold text-primary">Pioneiros regulares ativos <span class="badge badge-primary ml-1">{{ total_pioneiros }}</span></h6>
+        {% if configuracao.imagem and total_pioneiros %}
+        <button class="btn btn-primary btn-sm mt-2 mt-md-0" type="button" data-toggle="modal" data-target="#imprimirTodosModal"><span class="fas fa-print"></span> Imprimir todos</button>
+        {% else %}
+        <button class="btn btn-secondary btn-sm mt-2 mt-md-0" type="button" disabled><span class="fas fa-print"></span> Imprimir todos</button>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if pioneiros %}
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover">
+            <thead><tr><th>Pioneiro</th><th>Grupo</th><th class="text-center">Impressão</th></tr></thead>
+            <tbody>
+              {% for pioneiro in pioneiros %}
+              <tr>
+                <td>{{ pioneiro.nome }}</td>
+                <td>{{ pioneiro.grupo|default:'-' }}</td>
+                <td class="text-center">
+                  {% if configuracao.imagem %}
+                  <button class="btn btn-outline-primary btn-sm imprimir-pioneiro" type="button" data-toggle="modal" data-target="#imprimirPioneiroModal" data-nome="{{ pioneiro.nome }}" data-url="{% url 'notebooks:pdf_capa_individual' pioneiro.id %}?ano={{ ano }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-print"></span> Imprimir</button>
+                  {% else %}
+                  <button class="btn btn-outline-secondary btn-sm" type="button" disabled><span class="fas fa-print"></span> Imprimir</button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mb-0">Nenhum pioneiro regular ativo foi encontrado nesta congregação.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="imprimirTodosModal" tabindex="-1" role="dialog" aria-labelledby="imprimirTodosTitulo" aria-hidden="true">
+  <div class="modal-dialog" role="document"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="imprimirTodosTitulo">Imprimir todos os cadernos</h5><button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button></div>
+    <div class="modal-body">
+      <p>Imprima primeiro o arquivo com as <strong>{{ total_pioneiros }} capas personalizadas</strong>.</p>
+      <p class="mb-0">Depois, abra o miolo e selecione <strong>{{ total_pioneiros }} cópia{{ total_pioneiros|pluralize }}</strong> na impressora.</p>
+    </div>
+    <div class="modal-footer">
+      <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{% url 'notebooks:pdf_miolo' %}?ano={{ ano }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-file-alt"></span> Miolo</a>
+      <a class="btn btn-primary" target="_blank" rel="noopener" href="{% url 'notebooks:pdf_capas' %}?ano={{ ano }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-copy"></span> Todas as capas</a>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="imprimirPioneiroModal" tabindex="-1" role="dialog" aria-labelledby="imprimirPioneiroTitulo" aria-hidden="true">
+  <div class="modal-dialog" role="document"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="imprimirPioneiroTitulo">Imprimir caderno</h5><button class="close" type="button" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button></div>
+    <div class="modal-body">Gere a capa personalizada de <strong id="nomePioneiroImpressao"></strong> e imprima o miolo anual separadamente.</div>
+    <div class="modal-footer">
+      <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{% url 'notebooks:pdf_miolo' %}?ano={{ ano }}&amp;cong={{ selected_cong.id }}"><span class="fas fa-file-alt"></span> Miolo</a>
+      <a class="btn btn-primary" id="imprimirCapaIndividual" target="_blank" rel="noopener" href="#"><span class="fas fa-file-pdf"></span> Capa personalizada</a>
+    </div>
+  </div></div>
+</div>
+{% elif request.user.is_superuser %}
+<div class="alert alert-info">Selecione uma congregação para configurar e imprimir os cadernos.</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script>
+$(function () {
+  $('.imprimir-pioneiro').on('click', function () {
+    var botao = $(this);
+    $('#nomePioneiroImpressao').text(botao.data('nome'));
+    $('#imprimirCapaIndividual').attr('href', botao.data('url'));
+  });
+});
+</script>
+<style>.caderno-imagem-preview img{max-height:210px;width:100%;object-fit:cover}</style>
+{% endblock %}

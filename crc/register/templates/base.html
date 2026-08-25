@@ -168,6 +168,21 @@
                 </div>
             </li>
             {% endif %}
+            {% if perms.notebooks.manage_pioneer_notebooks %}
+            <li class="nav-item">
+                <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseCadernos"
+                    aria-expanded="true" aria-controls="collapseCadernos">
+                    <i class="fas fa-fw fa-book"></i>
+                    <span>Cadernos</span>
+                </a>
+                <div id="collapseCadernos" class="collapse" aria-labelledby="headingCadernos" data-parent="#accordionSidebar">
+                    <div class="bg-white py-2 collapse-inner rounded">
+                        <h6 class="collapse-header">Cadernos de atividade:</h6>
+                        <a class="collapse-item" href="{% url 'notebooks:pioneiros_regulares' %}">Pioneiros Regulares</a>
+                    </div>
+                </div>
+            </li>
+            {% endif %}
             <!-- Divider -->
             <hr class="sidebar-divider d-none d-md-block">
 
