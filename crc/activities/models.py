@@ -22,6 +22,11 @@ class Relatorios(models.Model):
     publicacoes = models.IntegerField(db_column='Publicacoes')
     videos = models.IntegerField(db_column='Videos')
     horas = models.IntegerField(db_column='Horas')
+    credito_horas = models.PositiveIntegerField(
+        db_column='Credito_Horas',
+        verbose_name='Crédito (Horas)',
+        default=0,
+    )
     revisitas = models.IntegerField(db_column='Revisitas')
     estudos = models.IntegerField(db_column='Estudos')
     observacao = models.TextField(db_column='Observacao', blank=True, null=True)

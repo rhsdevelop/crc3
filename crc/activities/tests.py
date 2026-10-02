@@ -6,7 +6,7 @@ from django.contrib.auth.models import Permission, User
 from django.test import TestCase
 from django.urls import reverse
 
-from register.models import Cong, CongUser, Grupos, Publicadores
+from register.models import Cong, CongUser, Grupos, Pioneiros, Publicadores
 from .models import Relatorios
 from .views import calcular_idade, data_nascimento_idade_minima, periodo_ano_servico, periodo_ultimos_seis_meses
 
@@ -19,19 +19,23 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.grupo_b = Grupos.objects.create(grupo='Grupo B', dirigente='Dirigente B', cong=self.cong_b)
         self.user = User.objects.create_user(username='usuario', password='senha')
         self.user.user_permissions.add(Permission.objects.get(codename='view_relatorios'))
+        self.user.user_permissions.add(Permission.objects.get(codename='add_relatorios'))
         CongUser.objects.create(user=self.user, cong=self.cong_a)
         self.staff = User.objects.create_superuser(username='staff', password='senha')
         self.pioneiro_a = self.criar_publicador('Pioneiro A', self.cong_a, self.grupo_a)
         self.pioneiro_sem_horas = self.criar_publicador('Pioneiro Sem Horas', self.cong_a, self.grupo_a)
         self.pioneiro_b = self.criar_publicador('Pioneiro B', self.cong_b, self.grupo_b)
         self.criar_publicador('Pioneiro Inativo', self.cong_a, self.grupo_a, situacao=0)
-        self.criar_publicador('Publicador Comum', self.cong_a, self.grupo_a, tipo=0)
-        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 10)
-        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 5)
+        self.publicador_comum = self.criar_publicador('Publicador Comum', self.cong_a, self.grupo_a, tipo=0)
+        self.pioneiro_auxiliar = self.criar_publicador('Pioneiro Auxiliar', self.cong_a, self.grupo_a, tipo=0)
+        Pioneiros.objects.create(publicador=self.pioneiro_auxiliar, mes=datetime.date(2026, 1, 1))
+        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 10, credito_horas=3)
+        self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 9, 1), 5, credito_horas=2)
         self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 10, 1), 12)
         self.criar_relatorio(self.pioneiro_a, datetime.date(2025, 8, 1), 99)
-        self.criar_relatorio(self.pioneiro_b, datetime.date(2025, 9, 1), 620)
+        self.criar_relatorio(self.pioneiro_b, datetime.date(2025, 9, 1), 620, credito_horas=30)
         self.url = reverse('activities:resumo_pioneiros_regulares')
+        self.add_url = reverse('activities:add_relatorios')
 
     def criar_publicador(self, nome, congregacao, grupo, tipo=2, situacao=1):
         return Publicadores.objects.create(
@@ -47,13 +51,14 @@ class ResumoPioneirosRegularesTests(TestCase):
             cong=congregacao,
         )
 
-    def criar_relatorio(self, publicador, mes, horas, tipo=2):
+    def criar_relatorio(self, publicador, mes, horas, tipo=2, credito_horas=0):
         return Relatorios.objects.create(
             publicador=publicador,
             mes=mes,
             publicacoes=0,
             videos=0,
             horas=horas,
+            credito_horas=credito_horas,
             revisitas=0,
             estudos=0,
             tipo=tipo,
@@ -63,9 +68,90 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertEqual(periodo_ano_servico(datetime.date(2026, 6, 2)), ('2025-09', '2026-08'))
         self.assertEqual(periodo_ano_servico(datetime.date(2026, 9, 1)), ('2026-09', '2027-08'))
 
+    def test_lancamento_exibe_salva_e_atualiza_credito_de_horas(self):
+        self.client.login(username='usuario', password='senha')
+
+        response = self.client.get(self.add_url)
+        self.assertContains(response, 'Crédito (Horas)')
+
+        dados = {
+            'publicador': self.pioneiro_a.id,
+            'tipo': 2,
+            'mes': '2026-01',
+            'presente': 'on',
+            'horas': 40,
+            'credito_horas': 10,
+            'estudos': 1,
+            'observacao': 'Crédito registrado na observação.',
+            'atv_local': 'on',
+        }
+        response = self.client.post(self.add_url, dados)
+        self.assertRedirects(response, self.add_url)
+        relatorio = Relatorios.objects.get(publicador=self.pioneiro_a, mes=datetime.date(2026, 1, 1))
+        self.assertEqual(relatorio.credito_horas, 10)
+
+        dados['credito_horas'] = 15
+        response = self.client.post(self.add_url, dados)
+        self.assertRedirects(response, self.add_url)
+        relatorio.refresh_from_db()
+        self.assertEqual(relatorio.credito_horas, 15)
+
+    def test_campos_e_gravacao_respeitam_tipo_do_publicador(self):
+        self.client.login(username='usuario', password='senha')
+
+        resposta_regular = self.client.get(self.add_url, {
+            'publicador': self.pioneiro_a.id,
+            'mes': '2026-01',
+        })
+        resposta_auxiliar = self.client.get(self.add_url, {
+            'publicador': self.pioneiro_auxiliar.id,
+            'mes': '2026-01',
+        })
+        resposta_publicador = self.client.get(self.add_url, {
+            'publicador': self.publicador_comum.id,
+            'mes': '2026-01',
+        })
+        self.assertEqual(resposta_regular.json(), [[2, 'Pioneiro Regular']])
+        self.assertEqual(resposta_auxiliar.json(), [[1, 'Pioneiro Auxiliar']])
+        self.assertEqual(resposta_publicador.json(), [[0, 'Publicador']])
+
+        dados = {
+            'publicador': self.pioneiro_auxiliar.id,
+            'tipo': 2,
+            'mes': '2026-01',
+            'presente': 'on',
+            'horas': 20,
+            'credito_horas': 10,
+            'estudos': 0,
+            'observacao': '',
+            'atv_local': 'on',
+        }
+        self.client.post(self.add_url, dados)
+        relatorio_auxiliar = Relatorios.objects.get(
+            publicador=self.pioneiro_auxiliar,
+            mes=datetime.date(2026, 1, 1),
+        )
+        self.assertEqual(relatorio_auxiliar.tipo, 1)
+        self.assertEqual(relatorio_auxiliar.horas, 20)
+        self.assertEqual(relatorio_auxiliar.credito_horas, 0)
+
+        dados.update({'publicador': self.publicador_comum.id, 'horas': 20, 'credito_horas': 10})
+        self.client.post(self.add_url, dados)
+        relatorio_publicador = Relatorios.objects.get(
+            publicador=self.publicador_comum,
+            mes=datetime.date(2026, 1, 1),
+        )
+        self.assertEqual(relatorio_publicador.tipo, 0)
+        self.assertEqual(relatorio_publicador.horas, 0)
+        self.assertEqual(relatorio_publicador.credito_horas, 0)
+
     def test_usuario_comum_ve_apenas_sua_congregacao_e_total_zero(self):
         self.client.login(username='usuario', password='senha')
-        response = self.client.get(self.url, {'congregacao': self.cong_b.id})
+        response = self.client.get(self.url, {
+            'congregacao': self.cong_b.id,
+            'mes_inicio': '2025-09',
+            'mes_fim': '2026-08',
+        })
         self.assertContains(response, 'Pioneiro A')
         self.assertContains(response, 'Pioneiro Sem Horas')
         self.assertNotContains(response, 'Pioneiro B')
@@ -73,10 +159,11 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertNotContains(response, 'Publicador Comum')
         self.assertNotContains(response, 'name="congregacao"')
         self.assertContains(response, '<td>27</td>', html=True)
+        self.assertContains(response, '<td>5</td>', html=True)
         self.assertContains(response, '<td>2</td>', html=True)
-        self.assertContains(response, '<td>14</td>', html=True)
-        self.assertContains(response, '<td>573</td>', html=True)
-        self.assertContains(response, '<td>0</td>', count=3, html=True)
+        self.assertContains(response, '<td>16</td>', html=True)
+        self.assertContains(response, '<td>568</td>', html=True)
+        self.assertContains(response, '<td>0</td>', count=4, html=True)
         self.assertContains(response, '<td>600</td>', html=True)
 
     def test_staff_filtra_congregacao_grupo_publicador_e_periodo(self):
@@ -91,25 +178,32 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertContains(response, 'name="congregacao"')
         self.assertContains(response, 'Pioneiro B')
         self.assertContains(response, '<td>620</td>', html=True)
+        self.assertContains(response, '<td>30</td>', html=True)
         self.assertContains(response, '<td>1</td>', html=True)
-        self.assertContains(response, '<td>-20</td>', html=True)
+        self.assertContains(response, '<td>650</td>', html=True)
+        self.assertContains(response, '<td>-50</td>', html=True)
         self.assertNotContains(response, 'Pioneiro A')
 
     def test_considera_apenas_meses_como_pioneiro_regular(self):
         pioneiro_meio_periodo = self.criar_publicador('Pioneiro Meio Período', self.cong_a, self.grupo_a)
-        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 9, 1), 5, tipo=0)
-        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 10, 1), 20, tipo=1)
-        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 11, 1), 50, tipo=2)
-        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 12, 1), 60, tipo=2)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 9, 1), 5, tipo=0, credito_horas=100)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 10, 1), 20, tipo=1, credito_horas=100)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 11, 1), 50, tipo=2, credito_horas=5)
+        self.criar_relatorio(pioneiro_meio_periodo, datetime.date(2025, 12, 1), 60, tipo=2, credito_horas=5)
 
         self.client.login(username='usuario', password='senha')
-        response = self.client.get(self.url, {'publicador': 'Pioneiro Meio Período'})
+        response = self.client.get(self.url, {
+            'publicador': 'Pioneiro Meio Período',
+            'mes_inicio': '2025-09',
+            'mes_fim': '2026-08',
+        })
 
         self.assertContains(response, 'Pioneiro Meio Período')
         self.assertContains(response, '<td>110</td>', html=True)
+        self.assertContains(response, '<td>10</td>', html=True)
         self.assertContains(response, '<td>2</td>', html=True)
-        self.assertContains(response, '<td>55</td>', html=True)
-        self.assertContains(response, '<td>490</td>', html=True)
+        self.assertContains(response, '<td>60</td>', html=True)
+        self.assertContains(response, '<td>480</td>', html=True)
 
     def test_usuario_comum_nao_vaza_dados_ao_informar_grupo_de_outra_congregacao(self):
         self.client.login(username='usuario', password='senha')
@@ -127,8 +221,8 @@ class ResumoPioneirosRegularesTests(TestCase):
         self.assertEqual(response['Content-Type'], 'text/csv')
         self.assertEqual(response['Content-Disposition'], 'attachment; filename=resumo-pioneiros-regulares.csv')
         content = response.content.decode('utf-8')
-        self.assertIn('Publicador;Grupo de serviço;Congregação;Horas;Meses;Média;Saldo', content)
-        self.assertIn('Pioneiro B;Grupo B;Congregação B (2);620;1;620;-20', content)
+        self.assertIn('Publicador;Grupo de serviço;Congregação;Horas;Crédito;Meses;Média;Saldo', content)
+        self.assertIn('Pioneiro B;Grupo B;Congregação B (2);620;30;1;650;-50', content)
         self.assertNotIn('Pioneiro A', content)
 
     def test_exportacao_csv_de_usuario_comum_nao_vaza_outra_congregacao(self):
@@ -140,7 +234,7 @@ class ResumoPioneirosRegularesTests(TestCase):
             'export': 'csv',
         })
         content = response.content.decode('utf-8')
-        self.assertIn('Pioneiro A;Grupo A;Congregação A (1);27;2;14;573', content)
+        self.assertIn('Pioneiro A;Grupo A;Congregação A (1);27;5;2;16;568', content)
         self.assertNotIn('Pioneiro B', content)
 
 

@@ -57,6 +57,7 @@
             <th scope="col">Publicador</th>
             <th scope="col">Mês</th>
             <th scope="col">Horas</th>
+            <th scope="col">Crédito</th>
             <th scope="col">Estudos</th>
             <th scope="col">Observação</th>
             <th scope="col">Tipo</th>
@@ -69,6 +70,7 @@
             <th scope="row">{{ relatorios.publicador }}</th>
             <td><span hidden>{{ relatorios.mes|date:'Ym' }}</span>{{ relatorios.mes|date:'m-Y' }}</td>
             <td>{{ relatorios.horas }}</td>
+            <td>{{ relatorios.credito_horas }}</td>
             <td>{{ relatorios.estudos }}</td>
             <td>{{ relatorios.observacao|default_if_none:"" }}</td>
             <td>{{ relatorios.get_tipo_display }}</td>

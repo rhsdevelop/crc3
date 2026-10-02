@@ -51,6 +51,7 @@
             <th scope="col">Congregação</th>
             {% endif %}
             <th scope="col">Horas</th>
+            <th scope="col">Crédito</th>
             <th scope="col">Meses</th>
             <th scope="col">Média</th>
             <th scope="col">Saldo</th>
@@ -65,6 +66,7 @@
             <td>{{ pioneiro.cong|default_if_none:"" }}</td>
             {% endif %}
             <td>{{ pioneiro.total_horas }}</td>
+            <td>{{ pioneiro.total_credito }}</td>
             <td>{{ pioneiro.total_meses }}</td>
             <td>{{ pioneiro.media_horas }}</td>
             <td>{{ pioneiro.saldo_horas }}</td>

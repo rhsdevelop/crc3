@@ -1,6 +1,5 @@
 import csv
 import datetime
-import json
 import os
 from io import BytesIO, StringIO
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -15,7 +14,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Avg, Case, Count, F, IntegerField, Q, Sum, Value, When
 from django.db.models.functions import Cast, Coalesce, Round
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.template import loader
 
@@ -65,34 +64,41 @@ def primeiro_dia_mes(mes, padrao):
         return datetime.datetime.strptime(padrao + '-01', '%Y-%m-%d').date()
 
 
+def tipo_relatorio_publicador(publicador, mes):
+    if publicador.tipo == 2:
+        return 2
+    if Pioneiros.objects.filter(publicador=publicador, mes=mes).exists():
+        return 1
+    return 0
+
+
 @login_required
 @permission_required('activities.add_relatorios')
 def add_relatorios(request):
     if request.GET and 'publicador' in request.GET and request.GET['publicador']:
         publicador = Publicadores.objects.get(id=request.GET['publicador'])
-        if publicador.tipo == 2:
-            CHOICES = [[publicador.tipo, publicador.get_tipo_display()]]
-        else:
-            pioneiro = Pioneiros.objects.filter(publicador=publicador, mes=request.GET['mes'] + '-01')
-            if pioneiro:
-                CHOICES = [[1, 'Pioneiro Auxiliar']]
-            else:
-                CHOICES = [[0, 'Publicador']]
-        json_string = json.dumps(CHOICES)
-        return HttpResponse(json_string)
+        tipo_relatorio = tipo_relatorio_publicador(publicador, request.GET['mes'] + '-01')
+        CHOICES = [[tipo_relatorio, dict(TIPO)[tipo_relatorio]]]
+        return JsonResponse(CHOICES, safe=False)
     if request.POST:
         request_post = request.POST.copy()
+        publicador = Publicadores.objects.get(id=request_post['publicador'])
+        mes_relatorio = request_post['mes'] + '-01'
+        tipo_selecionado = tipo_relatorio_publicador(publicador, mes_relatorio)
+        horas = (request_post.get('horas') or 0) if tipo_selecionado in (1, 2) else 0
+        credito_horas = (request_post.get('credito_horas') or 0) if tipo_selecionado == 2 else 0
         # Testar se tem relatório lançado.
         relatorio = Relatorios.objects.filter(
             publicador_id=request_post['publicador'],
-            mes=request_post['mes'] + '-01',
+            mes=mes_relatorio,
         )
         if relatorio:
             relatorio.update(
-                horas=0 if not 'horas' in request_post else request_post['horas'],
+                horas=horas,
+                credito_horas=credito_horas,
                 estudos=request_post['estudos'],
                 observacao=request_post['observacao'],
-                tipo=3 if not 'presente' in request_post else request_post['tipo'],
+                tipo=3 if not 'presente' in request_post else tipo_selecionado,
                 atv_local=True if 'atv_local' in request_post and request_post['atv_local'] == 'on' else False,
                 assign_user_id=request.user.id,
             )
@@ -100,21 +106,22 @@ def add_relatorios(request):
         else:
             new_item = {
                 'publicador_id': request_post['publicador'],
-                'mes': request_post['mes'] + '-01',
+                'mes': mes_relatorio,
                 'publicacoes': 0,
                 'videos': 0,
-                'horas': 0 if not 'horas' in request_post else request_post['horas'],
+                'horas': horas,
+                'credito_horas': credito_horas,
                 'revisitas': 0,
                 'estudos': request_post['estudos'],
                 'observacao': request_post['observacao'],
-                'tipo': 3 if not 'presente' in request_post else request_post['tipo'],
+                'tipo': 3 if not 'presente' in request_post else tipo_selecionado,
                 'atv_local': True if 'atv_local' in request_post and request_post['atv_local'] == 'on' else False,
                 'create_user_id': request.user.id,
                 'assign_user_id': request.user.id,
             }
             Relatorios.objects.create(**new_item)
             messages.success(request, 'Registro adicionado com sucesso.')
-        return redirect('/activities/relatorios/add')
+        return redirect('activities:add_relatorios')
     form = AddRelatoriosForm()
     if not request.user.is_staff:
         crc_user = CongUser.objects.filter(user=request.user)
@@ -188,12 +195,13 @@ def list_relatorios(request):
 def sheet_relatorios(list_relatorios):
     io_report = StringIO()
     writerio = csv.writer(io_report, delimiter=';')
-    writerio.writerow(['Publicador', 'Mês', 'Horas', 'Estudos', 'Observação', 'Tipo', 'Atividade local?'])
+    writerio.writerow(['Publicador', 'Mês', 'Horas', 'Crédito', 'Estudos', 'Observação', 'Tipo', 'Atividade local?'])
     for relatorio in list_relatorios:
         writerio.writerow([
             relatorio.publicador,
             relatorio.mes.strftime('%m-%Y'),
             relatorio.horas,
+            relatorio.credito_horas,
             relatorio.estudos,
             '' if not relatorio.observacao else relatorio.observacao,
             relatorio.get_tipo_display(),
@@ -313,14 +321,22 @@ def resumo_pioneiros_regulares(request):
             Value(0),
             output_field=IntegerField(),
         ),
+        total_credito=Coalesce(
+            Sum('relatorios__credito_horas', filter=relatorios_periodo),
+            Value(0),
+            output_field=IntegerField(),
+        ),
         total_meses=Count('relatorios__mes', filter=relatorios_periodo, distinct=True),
     ).annotate(
         media_horas=Case(
             When(total_meses=0, then=Value(0)),
-            default=Cast(Round(F('total_horas') * 1.0 / F('total_meses')), IntegerField()),
+            default=Cast(
+                Round((F('total_horas') + F('total_credito')) * 1.0 / F('total_meses')),
+                IntegerField(),
+            ),
             output_field=IntegerField(),
         ),
-        saldo_horas=Value(600) - F('total_horas'),
+        saldo_horas=Value(600) - F('total_horas') - F('total_credito'),
     ).order_by('nome')
     if request.GET.get('export') == 'csv':
         return sheet_resumo_pioneiros_regulares(list_pioneiros)
@@ -340,13 +356,14 @@ def resumo_pioneiros_regulares(request):
 def sheet_resumo_pioneiros_regulares(list_pioneiros):
     io_report = StringIO()
     writerio = csv.writer(io_report, delimiter=';')
-    writerio.writerow(['Publicador', 'Grupo de serviço', 'Congregação', 'Horas', 'Meses', 'Média', 'Saldo'])
+    writerio.writerow(['Publicador', 'Grupo de serviço', 'Congregação', 'Horas', 'Crédito', 'Meses', 'Média', 'Saldo'])
     for pioneiro in list_pioneiros:
         writerio.writerow([
             pioneiro.nome,
             '' if not pioneiro.grupo else pioneiro.grupo,
             '' if not pioneiro.cong else pioneiro.cong,
             pioneiro.total_horas,
+            pioneiro.total_credito,
             pioneiro.total_meses,
             pioneiro.media_horas,
             pioneiro.saldo_horas,

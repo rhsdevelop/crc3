@@ -25,8 +25,11 @@
             <div class="col-lg-12">
               {% bootstrap_field form.presente %}
             </div>
-            <div class="col-lg-12">
+            <div class="col-lg-12" id="campo-horas" style="display: none;">
               {% bootstrap_field form.horas %}
+            </div>
+            <div class="col-lg-12" id="campo-credito" style="display: none;">
+              {% bootstrap_field form.credito_horas %}
             </div>
             <div class="col-lg-12">
               {% bootstrap_field form.estudos %}
@@ -51,68 +54,57 @@
 {% block js %}
 <script type="text/javascript">
   $(document).ready(function(){
-    $('#id_publicador').on('change',function(e){
-      if(this.value != ''){
-        console.log(this.value);
-        $.ajax('?publicador=' + this.value + '&mes=' + document.getElementById("id_mes").value, {
-          url:'.',
-          type:'GET',
-          success: function(data) {
-            var obj = JSON.parse(data);
-            $('#id_tipo')
-              .find('option')
-              .remove()
-              .end();
-            for(var i = 0;i<obj.length;i++){
-              $("#id_tipo").append('<option value="'+obj[i][0]+'">'+obj[i][1]+'</option>');
-              if(obj[i][0] == 0){
-                console.log(obj[i][0])
-                $('#id_horas').attr('disabled', 'disabled');
-              }else{
-                $('#id_horas').removeAttr('disabled', 'disabled');
-              }
-            }
+    function atualizarCampos(tipo) {
+      tipo = parseInt(tipo, 10);
+      var permiteHoras = tipo === 1 || tipo === 2;
+      var permiteCredito = tipo === 2;
+
+      $('#campo-horas').toggle(permiteHoras);
+      $('#id_horas').prop('disabled', !permiteHoras);
+      $('#campo-credito').toggle(permiteCredito);
+      $('#id_credito_horas').prop('disabled', !permiteCredito);
+
+      if (!permiteHoras) {
+        $('#id_horas').val('');
+      }
+      if (!permiteCredito) {
+        $('#id_credito_horas').val('');
+      }
+    }
+
+    function carregarTipo() {
+      var publicador = $('#id_publicador').val();
+      var mes = $('#id_mes').val();
+
+      if (!publicador || !mes) {
+        $('#id_tipo').empty();
+        atualizarCampos(null);
+        return;
+      }
+
+      $.ajax({
+        url: '.',
+        type: 'GET',
+        dataType: 'json',
+        data: {publicador: publicador, mes: mes},
+        success: function(opcoes) {
+          $('#id_tipo').empty();
+          for (var i = 0; i < opcoes.length; i++) {
+            $('#id_tipo').append(
+              $('<option>', {value: opcoes[i][0], text: opcoes[i][1]})
+            );
           }
-        });
-      };
-      if(!this.value){
-        $('#id_tipo')
-        .find('option')
-        .remove()
-        .end();
-      };
-    });
-    $('#id_mes').on('change',function(e){
-      if(this.value != ''){
-        console.log(this.value);
-        $.ajax('?publicador=' + document.getElementById("id_publicador").value + '&mes=' + this.value, {
-          url:'.',
-          type:'GET',
-          success: function(data) {
-            var obj = JSON.parse(data);
-            $('#id_tipo')
-              .find('option')
-              .remove()
-              .end();
-            for(var i = 0;i<obj.length;i++){
-              $("#id_tipo").append('<option value="'+obj[i][0]+'">'+obj[i][1]+'</option>');
-              if(obj[i][0] == 0){
-                console.log(obj[i][0])
-                $('#id_horas').attr('disabled', 'disabled');
-              }else{
-                $('#id_horas').removeAttr('disabled', 'disabled');
-              }
-            }
-          }
-        });
-      };
-      if(!this.value){
-        $('#id_tipo')
-        .find('option')
-        .remove()
-        .end();
-      };
-    });
+          atualizarCampos(opcoes.length ? opcoes[0][0] : null);
+        },
+        error: function() {
+          $('#id_tipo').empty();
+          atualizarCampos(null);
+        }
+      });
+    }
+
+    atualizarCampos(null);
+    $('#id_publicador, #id_mes').on('change', carregarTipo);
   });
 </script>
 {% endblock %}
